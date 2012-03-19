@@ -1,0 +1,18 @@
+mysql:
+    table: cs_transactions
+    port: 3306
+    username: root
+    hostname: localhost
+    password: ''
+    database: minecraft
+    warpTable: warpTable
+columns:
+    id: 1
+    buy: 2
+    shop_owner: 3
+    shop_user: 4
+    item_id: 5
+    item_durability: 6
+    amount: 7
+    price: 8
+    sec: 9

@@ -1,0 +1,8 @@
+name: csStats
+main: com.cyprias.csstats.csStats
+version: 0.0.1
+
+commands:
+   css:
+      description: cs Stats command
+      usage: /<command>
