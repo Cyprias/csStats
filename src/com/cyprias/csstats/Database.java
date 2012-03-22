@@ -111,6 +111,9 @@ public class Database {
 		double mean;
 		double median;
 		double mode;
+		double amean;
+		double amedian;
+		double amode;
 	}
 	
 	public ArrayList adminShopBuys(CommandSender sender, long maxAge){
@@ -235,7 +238,7 @@ public class Database {
 		
 		//double[] prices = new double[]; // new double[20];
 		List<Double> prices = new ArrayList();
-		
+		List<Integer> amounts = new ArrayList();
 		
 		try {
 			Connection con = DriverManager.getConnection(mysqlInfo.URL, mysqlInfo.username, mysqlInfo.password);
@@ -289,7 +292,7 @@ public class Database {
 				//prices[i] = aPrice;
 				
 				prices.add(aPrice);
-				
+				amounts.add(amount);
 				
 				i=i+1;
 					
@@ -319,6 +322,17 @@ public class Database {
 				sender.sendMessage("mean: " + Round(mean(dPrices),2));
 				sender.sendMessage("median: " + Round(median(dPrices),2));
 				sender.sendMessage("mode: " + Round(mode(dPrices),2));
+			}
+			
+			if (amounts.size() > 0){
+				double[] dAmounts = new double[amounts.size()];
+				
+				for (int i1 = 0; i1 < amounts.size(); i1++)
+					dAmounts[i1] = amounts.get(i1);
+	
+				sender.sendMessage("Amount mean: " + Round(mean(dAmounts),2));
+				sender.sendMessage("Amount median: " + Round(median(dAmounts),2));
+				sender.sendMessage("Amount mode: " + Round(mode(dAmounts),2));
 			}
 			
 		} catch (SQLException e) {
@@ -360,7 +374,7 @@ public class Database {
 		
 		int i=0;
 		List<Double> prices = new ArrayList<Double>();
-		
+		List<Integer> amounts = new ArrayList<Integer>();
 		
 		
 		
@@ -421,7 +435,7 @@ public class Database {
 				//prices[i] = aPrice;
 				
 				prices.add(aPrice);
-				
+				amounts.add(amount);
 				
 				i=i+1;
 					
@@ -462,6 +476,18 @@ public class Database {
 				myReturn.median = median(dPrices);
 				myReturn.mode = mode(dPrices);
 			}
+			if (amounts.size() > 0){
+				double[] dAmounts = new double[amounts.size()];
+				
+				for (int i1 = 0; i1 < amounts.size(); i1++)
+					dAmounts[i1] = amounts.get(i1);
+				
+				myReturn.amean = mean(dAmounts);
+				myReturn.amedian = median(dAmounts);
+				myReturn.amode = mode(dAmounts);
+			}
+			
+			
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

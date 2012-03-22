@@ -57,9 +57,12 @@ public class csStats extends JavaPlugin {
 		if (stats.total == 0)
 			return "§7sales: §f" + stats.total;
 
-		return "§7sales: §f" + stats.total + "§7, items: §f" + Database.Round(stats.totalAmount, 0) + "§7, avg: $§f"
-			+ Database.Round(stats.avgPrice * stackCount, roundTo) + "§7, median: $§f" + Database.Round(stats.median * stackCount, roundTo) + "§7, mode: $§f"
-			+ Database.Round(stats.mode * stackCount, roundTo);
+		return "§7sales: §f" + stats.total + 
+			"§7, items: §f" + Database.Round(stats.totalAmount, 0) + 
+			//"§7, price: $§f" + Database.Round(stats.avgPrice * stackCount, roundTo) + "/" + Database.Round(stats.median * stackCount, roundTo) + "/" + Database.Round(stats.mode * stackCount, roundTo)
+			"§7, avg: $§f" + Database.Round(stats.avgPrice * stackCount, roundTo) + 
+			"§7, median: $§f" + Database.Round(stats.median * stackCount, roundTo) + 
+			"§7, mode: $§f"	+ Database.Round(stats.mode * stackCount, roundTo);
 	}
 
 	public static String encodeEnchantment(Map<Enchantment, Integer> map) {
@@ -166,21 +169,32 @@ public class csStats extends JavaPlugin {
 
 		int itemID = player.getItemInHand().getTypeId();
 		int dur = player.getItemInHand().getDurability();
-		
+		String itemName = "NULL";
 		if (args.length == 2) {
-			if (args[1].contains(":")) {
-				String[] temp = args[1].split(":");
-				itemID = Integer.valueOf(temp[0]).intValue();
-				dur = Integer.valueOf(temp[1]).intValue();
-			} else {
-				itemID = Integer.valueOf(args[1]).intValue();
-				dur = 0;
+			
+			
+			
+			ItemDb.itemData iD = iDB.getItemID(args[1].toLowerCase());
+			
+			if (iD != null){
+				itemID = iD.itemID;
+				dur = iD.itemDur;
+				itemName = iD.itemName;
+			}else{
+			
+				if (args[1].contains(":")) {
+					String[] temp = args[1].split(":");
+					itemID = Integer.parseInt(temp[0]);
+					dur = Integer.parseInt(temp[1]);
+				} else {
+					itemID = Integer.parseInt(args[1]);
+					dur = 0;
+				}
+				itemName = iDB.getItemName(itemID, dur);
 			}
 		}
-		
-		String itemName = iDB.getItemName(itemID, dur);
 
-		ArrayList<Seller.sellerInfo> recentSellers = seller.getRecentSellers(sender);
+		ArrayList<Seller.sellerInfo> recentSellers = seller.getRecentSellers(sender, itemID,dur);
 
 		if (recentSellers.size() == 0) {
 			sender.sendMessage(chatPrefix + String.format("§7No one has sold §f%s §7yet.", itemName));
@@ -286,16 +300,16 @@ public class csStats extends JavaPlugin {
 				if (args.length == 2) {
 					if (args[1].contains(":")) {
 						String[] temp = args[1].split(":");
-						itemID = Integer.valueOf(temp[0]).intValue();
-						dur = Integer.valueOf(temp[1]).intValue();
+						itemID = Integer.parseInt(temp[0]);
+						dur = Integer.parseInt(temp[1]);
 					} else {
-						itemID = Integer.valueOf(args[1]).intValue();
+						itemID = Integer.parseInt(args[1]);
 						dur = 0;
 					}
 				}
 
 				if (args.length == 3) {
-					stack = Integer.valueOf(args[2]).intValue();
+					stack = Integer.parseInt(args[2]);
 				}
 
 				sender.sendMessage(chatPrefix+String.format("§7item: §f%s§7, stack: §f%s", iDB.getItemName(itemID, dur), stack));
@@ -332,7 +346,7 @@ public class csStats extends JavaPlugin {
 				//
 				// log.info("item: " + itemID,dur );
 
-				database.tellItemPrice(sender, Integer.valueOf(args[1]).intValue());
+				database.tellItemPrice(sender, Integer.parseInt(args[1]));
 
 				return true;
 			} else if (args[0].equalsIgnoreCase("reload") && hasPermission(sender, "csstats.reload")) {
@@ -375,16 +389,34 @@ public class csStats extends JavaPlugin {
 						return true;
 					}
 
-					stack = Integer.valueOf(args[1]).intValue();
+					ItemDb.itemData iD = iDB.getItemID(args[1].toLowerCase());
+					if (iD != null){
+						itemID = iD.itemID;
+						dur = iD.itemDur;
+						stack = 1;
+					}else{
+						stack = Integer.parseInt(args[1]);
+					}
+
 				}
 
 				if (args.length >= 3) {
-					if (args[2].contains(":")) {
-						String[] temp = args[1].split(":");
-						itemID = Integer.valueOf(temp[0]).intValue();
-						dur = Integer.valueOf(temp[1]).intValue();
-					} else {
-						itemID = Integer.valueOf(args[2]).intValue();
+					
+					ItemDb.itemData iD = iDB.getItemID(args[2].toLowerCase());
+					
+					if (iD != null){
+						itemID = iD.itemID;
+						dur = iD.itemDur;
+						stack = 1;
+					}else{
+					
+						if (args[2].contains(":")) {
+							String[] temp = args[1].split(":");
+							itemID = Integer.parseInt(temp[0]);
+							dur = Integer.parseInt(temp[1]);
+						} else {
+							itemID = Integer.parseInt(args[2]);
+						}
 					}
 				}
 

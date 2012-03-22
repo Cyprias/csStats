@@ -33,7 +33,7 @@ public class Seller  {
 		}
 	}
 	
-	public ArrayList<sellerInfo> getRecentSellers(CommandSender sender){
+	public ArrayList<sellerInfo> getRecentSellers(CommandSender sender, int itemID, int dur){
 		Player player;
 		if (sender instanceof Player) {
 			player = (Player) sender;
@@ -41,8 +41,8 @@ public class Seller  {
 			return null;
 		}
 		
-		int itemID = player.getItemInHand().getTypeId();
-		int dur = player.getItemInHand().getDurability();
+		//int itemID = player.getItemInHand().getTypeId();
+		//int dur = player.getItemInHand().getDurability();
 		
 		Config.mysqlInfo mysqlInfo  = plugin.config.getMysqlInfo();//.config.getMysqlInfo();
 		String SQL = "select * from " + mysqlInfo.table;

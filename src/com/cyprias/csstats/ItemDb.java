@@ -8,9 +8,14 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
+
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.permissions.PermissionAttachment;
 
 public class ItemDb {
 	private csStats plugin;
@@ -44,22 +49,31 @@ public class ItemDb {
 		}
 	}
 	
-	private class itemData {
-		int id = 0;
-		int dur = 0;
-		public itemData(String string, String string2) {
-			// TODO Auto-generated constructor stub
-			id = Integer.parseInt(string);
-			dur = Integer.parseInt(string2);
-		}
-
+	public itemData getItemID(String itemName){
+		if (nameToID.containsKey(itemName))
+			return nameToID.get(itemName);
+		return null;
 	}
 	
-	HashMap<String,String> idToName = new HashMap<String,String>();
 	
 	public String getItemName(int itemID, int itemDur){
 		return idToName.get(itemID+":"+itemDur);
 	}
+	
+	static class itemData {
+		String itemName;
+		int itemID;
+		int itemDur;
+		public itemData(String string, String string2, String string3) {
+			itemName = string;
+			itemID = Integer.parseInt(string2);
+			itemDur = Integer.parseInt(string3);;
+		}
+
+	}
+	HashMap<String, itemData> nameToID = new HashMap<String, itemData>();
+	HashMap<String,String> idToName = new HashMap<String,String>();
+	
 	
 	private void loadFile(){
 		try {
@@ -83,8 +97,10 @@ public class ItemDb {
 					
 					//log.info(sID + " = " + values[0]);
 					
-					
-					
+					if (!nameToID.containsKey(values[0]))
+						nameToID.put(values[0], new itemData(values[0], values[1], values[2]));
+						
+						
 					if (! idToName.containsKey(sID))
 						idToName.put(sID, values[0]);
 			
