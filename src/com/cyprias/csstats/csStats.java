@@ -1,6 +1,7 @@
 package com.cyprias.csstats;
 
 import java.io.File;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -19,6 +20,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.cyprias.csstats.Database.adminShopStats;
+import com.cyprias.csstats.ItemDb.itemData;
 
 public class csStats extends JavaPlugin {
 	public static File folder = new File("plugins/csStats");
@@ -57,12 +59,15 @@ public class csStats extends JavaPlugin {
 		if (stats.total == 0)
 			return "§7sales: §f" + stats.total;
 
-		return "§7sales: §f" + stats.total + 
-			"§7, items: §f" + Database.Round(stats.totalAmount, 0) + 
-			//"§7, price: $§f" + Database.Round(stats.avgPrice * stackCount, roundTo) + "/" + Database.Round(stats.median * stackCount, roundTo) + "/" + Database.Round(stats.mode * stackCount, roundTo)
-			"§7, avg: $§f" + Database.Round(stats.avgPrice * stackCount, roundTo) + 
-			"§7, median: $§f" + Database.Round(stats.median * stackCount, roundTo) + 
-			"§7, mode: $§f"	+ Database.Round(stats.mode * stackCount, roundTo);
+		return "§7sales: §f" + stats.total
+			+ "§7, items: §f"
+			+ Database.Round(stats.totalAmount, 0)
+			+
+			// "§7, price: $§f" + Database.Round(stats.avgPrice * stackCount,
+			// roundTo) + "/" + Database.Round(stats.median * stackCount,
+			// roundTo) + "/" + Database.Round(stats.mode * stackCount, roundTo)
+			"§7, avg: $§f" + Database.Round(stats.avgPrice * stackCount, roundTo) + "§7, median: $§f" + Database.Round(stats.median * stackCount, roundTo)
+			+ "§7, mode: $§f" + Database.Round(stats.mode * stackCount, roundTo);
 	}
 
 	public static String encodeEnchantment(Map<Enchantment, Integer> map) {
@@ -124,7 +129,7 @@ public class csStats extends JavaPlugin {
 
 	public void command_seller(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		if (args.length == 1) {
-			sender.sendMessage(chatPrefix+"§7You need to include a player name.");
+			sender.sendMessage(chatPrefix + "§7You need to include a player name.");
 			return;
 		}
 
@@ -137,27 +142,64 @@ public class csStats extends JavaPlugin {
 			return;
 		}
 
-		sender.sendMessage(chatPrefix + String.format(
-			"§f%s §7has the following public warps...", targetName));
+		sender.sendMessage(chatPrefix + String.format("§f%s §7has the following public warps...", targetName));
 
 		for (int i = 0; i < sellerWarps.size(); i++) {
 			sender.sendMessage("    "
-			+ String.format("§f%s§7 in §f%s §7at §f%s %s %s", 
-				sellerWarps.get(i).name, 
-				sellerWarps.get(i).world, 
-				database.Round(sellerWarps.get(i).x,0), 
-				database.Round(sellerWarps.get(i).y,0),
-				database.Round(sellerWarps.get(i).z,0))
-				
+				+ String.format("§f%s§7 in §f%s §7at §f%s %s %s", sellerWarps.get(i).name, sellerWarps.get(i).world, database.Round(sellerWarps.get(i).x, 0),
+					database.Round(sellerWarps.get(i).y, 0), database.Round(sellerWarps.get(i).z, 0))
+
 			);
 		}
 
 	}
 
+	public ItemDb.itemData getItemDataFromInput(String id) {
+		id = id.toLowerCase();
 
+		int itemid = 0;
+		String itemname = null;
+		short metaData = 0;
+		if (id.matches("^\\d+[:+',;.]\\d+$")) {
+			itemid = Integer.parseInt(id.split("[:+',;.]")[0]);
+			metaData = Short.parseShort(id.split("[:+',;.]")[1]);
+		} else if (id.matches("^\\d+$")) {
+			itemid = Integer.parseInt(id);
+		} else if (id.matches("^[^:+',;.]+[:+',;.]\\d+$")) {
+			itemname = id.split("[:+',;.]")[0].toLowerCase();
+			metaData = Short.parseShort(id.split("[:+',;.]")[1]);
+		} else {
+			itemname = id.toLowerCase();
+		}
 
+		if (itemname == null && itemid > 0) {
+			itemname = iDB.getItemName(itemid, metaData);
+		}
 
-	
+		if (itemname != null) {
+			ItemDb.itemData iD = iDB.getItemID(itemname);
+			if (iD != null)
+				return iD;
+
+			// iD = new itemDB.itemData("item", string2, string3);
+
+		}
+		/*
+		 * try { ItemDb.itemData iD = iDB.getItemID(input.toLowerCase()); if (iD
+		 * != null) return iD; } catch (Exception e) {e.printStackTrace();}
+		 * 
+		 * try { String itemName; if (input.contains(":")) { String[] temp =
+		 * input.split(":"); itemName =
+		 * iDB.getItemName(Integer.parseInt(temp[0]),
+		 * Integer.parseInt(temp[1])); return new ItemDb.itemData(itemName,
+		 * temp[0], temp[1]); } else { itemName =
+		 * iDB.getItemName(Integer.parseInt(input), 0); return new
+		 * ItemDb.itemData(itemName, input, "0"); } } catch (Exception e)
+		 * {e.printStackTrace();}
+		 */
+		return null;
+	}
+
 	public void command_sellers(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		Player player;
 		if (sender instanceof Player) {
@@ -170,31 +212,32 @@ public class csStats extends JavaPlugin {
 		int itemID = player.getItemInHand().getTypeId();
 		int dur = player.getItemInHand().getDurability();
 		String itemName = "NULL";
+
+		/*
+		 * if (args.length == 2) { ItemDb.itemData iD =
+		 * iDB.getItemID(args[1].toLowerCase());
+		 * 
+		 * if (iD != null){ itemID = iD.itemID; dur = iD.itemDur; itemName =
+		 * iD.itemName; }else{
+		 * 
+		 * if (args[1].contains(":")) { String[] temp = args[1].split(":");
+		 * itemID = Integer.parseInt(temp[0]); dur = Integer.parseInt(temp[1]);
+		 * } else { itemID = Integer.parseInt(args[1]); dur = 0; } itemName =
+		 * iDB.getItemName(itemID, dur); } }
+		 */
+
 		if (args.length == 2) {
-			
-			
-			
-			ItemDb.itemData iD = iDB.getItemID(args[1].toLowerCase());
-			
-			if (iD != null){
-				itemID = iD.itemID;
-				dur = iD.itemDur;
-				itemName = iD.itemName;
-			}else{
-			
-				if (args[1].contains(":")) {
-					String[] temp = args[1].split(":");
-					itemID = Integer.parseInt(temp[0]);
-					dur = Integer.parseInt(temp[1]);
-				} else {
-					itemID = Integer.parseInt(args[1]);
-					dur = 0;
-				}
-				itemName = iDB.getItemName(itemID, dur);
+			ItemDb.itemData iD = getItemDataFromInput(args[1]);
+			if (iD == null) {
+				sender.sendMessage(chatPrefix + "Cannot find itemID for '" + args[1] + "', Try again.");
+				return;
 			}
+			itemID = iD.itemID;
+			dur = iD.itemDur;
+			itemName = iD.itemName;
 		}
 
-		ArrayList<Seller.sellerInfo> recentSellers = seller.getRecentSellers(sender, itemID,dur);
+		ArrayList<Seller.sellerInfo> recentSellers = seller.getRecentSellers(sender, itemID, dur);
 
 		if (recentSellers.size() == 0) {
 			sender.sendMessage(chatPrefix + String.format("§7No one has sold §f%s §7yet.", itemName));
@@ -205,20 +248,20 @@ public class csStats extends JavaPlugin {
 
 		for (int i = 0; i < recentSellers.size(); i++) {
 			sender.sendMessage(chatPrefix
-				+ String.format("§f%s§7: §f$%s §7per unit §f%s §7ago.", recentSellers.get(i).shop_owner, Database.Round(recentSellers.get(i).pricePerUnit, 2),
-					secondsToString(recentSellers.get(i).age)));
+				+ String.format("§f%s§7: §f$%s §7per 64 §f%s §7ago.", recentSellers.get(i).shop_owner,
+					Database.Round(recentSellers.get(i).pricePerUnit * 64, 2), secondsToString(recentSellers.get(i).age)));
 		}
 		// dPrices[i1] = prices.get(i1);
 
 	}
-	
 
 	static class cmdRequest {
 		CommandSender sender;
 		Command cmd;
-		String commandLabel; 
+		String commandLabel;
 		String[] args;
 	}
+
 	public ArrayList<cmdRequest> queuedCommands = new ArrayList<cmdRequest>();
 
 	public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
@@ -229,7 +272,7 @@ public class csStats extends JavaPlugin {
 		newCmd.args = args;
 
 		queuedCommands.add(newCmd);
-		
+
 		this.getServer().getScheduler().scheduleAsyncDelayedTask(this, new Runnable() {
 			public void run() {
 
@@ -238,14 +281,7 @@ public class csStats extends JavaPlugin {
 					// usedCommands.get(i).playerName + " said " +
 					// usedCommands.get(i).message);
 
-					
-					
-					commandHandler(
-						queuedCommands.get(i).sender,
-						queuedCommands.get(i).cmd,
-						queuedCommands.get(i).commandLabel,
-						queuedCommands.get(i).args
-					);
+					commandHandler(queuedCommands.get(i).sender, queuedCommands.get(i).cmd, queuedCommands.get(i).commandLabel, queuedCommands.get(i).args);
 
 					queuedCommands.remove(i);
 				}
@@ -254,8 +290,8 @@ public class csStats extends JavaPlugin {
 		}, 0L);
 		return true;
 	}
-	
-/**/
+
+	/**/
 	public boolean commandHandler(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		Player player = null;
 		String senderName = "[SERVER]";
@@ -271,10 +307,10 @@ public class csStats extends JavaPlugin {
 
 				// sender.sendMessage(chatPrefix + "/css test");
 				sender.sendMessage(chatPrefix + "  §aChestShop Stats");
-				sender.sendMessage(chatPrefix + "/css stats [stackSize] [itemID]");
+				sender.sendMessage(chatPrefix + "/css stats [itemID/Name] [stackSize]");
 				sender.sendMessage(chatPrefix + "/css sellers [itemID] - Who sells the item in your hand.");
 				sender.sendMessage(chatPrefix + "/css seller <player> - Public warps for that player.");
-				
+
 				if (hasPermission(sender, "css.admin"))
 					sender.sendMessage(chatPrefix + "/css admin");
 
@@ -312,7 +348,7 @@ public class csStats extends JavaPlugin {
 					stack = Integer.parseInt(args[2]);
 				}
 
-				sender.sendMessage(chatPrefix+String.format("§7item: §f%s§7, stack: §f%s", iDB.getItemName(itemID, dur), stack));
+				sender.sendMessage(chatPrefix + String.format("§7item: §f%s§7, stack: §f%s", iDB.getItemName(itemID, dur), stack));
 
 				Database.itemStats stats = database.getItemStats(itemID, dur, getUnixTime() - (60 * 60 * 24));
 				if (stats.total > 0)
@@ -375,12 +411,8 @@ public class csStats extends JavaPlugin {
 
 				int itemID = player.getItemInHand().getTypeId();
 				int dur = player.getItemInHand().getDurability();
-				int stack = 1;
+				int stack =  player.getItemInHand().getAmount();
 
-				
-				if (args.length >= 1) {
-					stack = player.getItemInHand().getAmount();
-				}
 
 				if (args.length >= 2) {
 
@@ -389,42 +421,54 @@ public class csStats extends JavaPlugin {
 						return true;
 					}
 
-					ItemDb.itemData iD = iDB.getItemID(args[1].toLowerCase());
-					if (iD != null){
+					// ItemDb.itemData iD =
+					// iDB.getItemID(args[1].toLowerCase());
+					ItemDb.itemData iD = getItemDataFromInput(args[1]);
+
+					if (iD != null) {
 						itemID = iD.itemID;
 						dur = iD.itemDur;
 						stack = 1;
 					}else{
-						stack = Integer.parseInt(args[1]);
+						sender.sendMessage(chatPrefix + "Cannot find ID for '"+args[1]+"', try again.");
+						return true;
 					}
 
 				}
 
 				if (args.length >= 3) {
-					
-					ItemDb.itemData iD = iDB.getItemID(args[2].toLowerCase());
-					
-					if (iD != null){
-						itemID = iD.itemID;
-						dur = iD.itemDur;
-						stack = 1;
-					}else{
-					
-						if (args[2].contains(":")) {
-							String[] temp = args[1].split(":");
-							itemID = Integer.parseInt(temp[0]);
-							dur = Integer.parseInt(temp[1]);
-						} else {
-							itemID = Integer.parseInt(args[2]);
-						}
+					/*
+					 * ItemDb.itemData iD =
+					 * iDB.getItemID(args[2].toLowerCase());
+					 * 
+					 * if (iD != null){ itemID = iD.itemID; dur = iD.itemDur;
+					 * stack = 1; }else{
+					 * 
+					 * if (args[2].contains(":")) { String[] temp =
+					 * args[1].split(":"); itemID = Integer.parseInt(temp[0]);
+					 * dur = Integer.parseInt(temp[1]); } else { itemID =
+					 * Integer.parseInt(args[2]); } }
+					 */
+
+					if (args[2].matches("^\\d+$")) {
+						stack = Integer.parseInt(args[2]);
 					}
+					
+					/*
+					ItemDb.itemData iD = getItemDataFromInput(args[2]);
+					if (iD == null) {
+						sender.sendMessage(chatPrefix + "Cannot find itemID for '" + args[2] + "', Try again.");
+						return true;
+					}
+					itemID = iD.itemID;
+					dur = iD.itemDur;
+*/
 				}
 
-				sender.sendMessage(chatPrefix + String.format("§7item: §f%s§7, stack: §f%s",
-					iDB.getItemName(itemID, dur), stack));
+				sender.sendMessage(chatPrefix + String.format("§7item: §f%s§7, stack: §f%s", iDB.getItemName(itemID, dur), stack));
 				// }
 				Database.itemStats stats;
-				
+
 				stats = database.getItemStats(itemID, dur, getUnixTime() - (60 * 60 * 24));
 				// if (stats.total > 0)
 				sender.sendMessage("1d " + getItemStatsMsg(stats, stack));
@@ -444,69 +488,73 @@ public class csStats extends JavaPlugin {
 				stats = database.getItemStats(itemID, dur, 0);
 				// if (stats.total > 0)
 				sender.sendMessage("all " + getItemStatsMsg(stats, stack));
-				
+
 				/*
-				newReq.sender = sender;
-				newReq.itemID = itemID;
-				newReq.dur = dur;
-				newReq.stack = stack;
-
-				queuedRequests.add(newReq);
-
-				this.getServer().getScheduler().scheduleAsyncDelayedTask(this, new Runnable() {
-					public void run() {
-						Database.itemStats stats;
-
-						for (int i = queuedRequests.size() - 1; i >= 0; i--) {
-							// plugin.getServer().broadcastMessage(i + ": " +
-							// usedCommands.get(i).playerName + " said " +
-							// usedCommands.get(i).message);
-
-							try {
-								// plugin.database.commandUsed(queuedRequests.get(i).player,
-								// queuedRequests.get(i).message);
-
-								// if
-								// (!Integer.valueOf(queuedRequests.get(i).dur).equals(0)){
-								// queuedRequests.get(i).sender.sendMessage(String.format("§7item: §f%s§7:§f%s§7, stack: §f%s",
-								// queuedRequests.get(i).itemID,
-								// queuedRequests.get(i).dur,
-								// queuedRequests.get(i).stack));
-								// }else{
-								queuedRequests.get(i).sender.sendMessage(String.format("item: %s, stack: %s",
-									iDB.getItemName(queuedRequests.get(i).itemID, queuedRequests.get(i).dur), queuedRequests.get(i).stack));
-								// }
-
-								stats = database.getItemStats(queuedRequests.get(i).itemID, queuedRequests.get(i).dur, getUnixTime() - (60 * 60 * 24));
-								// if (stats.total > 0)
-								queuedRequests.get(i).sender.sendMessage("1d " + getItemStatsMsg(stats, queuedRequests.get(i).stack));
-
-								stats = database.getItemStats(queuedRequests.get(i).itemID, queuedRequests.get(i).dur, getUnixTime() - (60 * 60 * 24 * 3));
-								// if (stats.total > 0)
-								queuedRequests.get(i).sender.sendMessage("3d " + getItemStatsMsg(stats, queuedRequests.get(i).stack));
-
-								stats = database.getItemStats(queuedRequests.get(i).itemID, queuedRequests.get(i).dur, getUnixTime() - (60 * 60 * 24 * 7));
-								// if (stats.total > 0)
-								queuedRequests.get(i).sender.sendMessage("1w " + getItemStatsMsg(stats, queuedRequests.get(i).stack));
-
-								stats = database.getItemStats(queuedRequests.get(i).itemID, queuedRequests.get(i).dur, getUnixTime() - (60 * 60 * 24 * 30));
-								// if (stats.total > 0)
-								queuedRequests.get(i).sender.sendMessage("1m " + getItemStatsMsg(stats, queuedRequests.get(i).stack));
-
-								stats = database.getItemStats(queuedRequests.get(i).itemID, queuedRequests.get(i).dur, 0);
-								// if (stats.total > 0)
-								queuedRequests.get(i).sender.sendMessage("all " + getItemStatsMsg(stats, queuedRequests.get(i).stack));
-
-							} catch (Exception e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
-
-							queuedRequests.remove(i);
-						}
-
-					}
-				}, 0L);
+				 * newReq.sender = sender; newReq.itemID = itemID; newReq.dur =
+				 * dur; newReq.stack = stack;
+				 * 
+				 * queuedRequests.add(newReq);
+				 * 
+				 * this.getServer().getScheduler().scheduleAsyncDelayedTask(this,
+				 * new Runnable() { public void run() { Database.itemStats
+				 * stats;
+				 * 
+				 * for (int i = queuedRequests.size() - 1; i >= 0; i--) { //
+				 * plugin.getServer().broadcastMessage(i + ": " + //
+				 * usedCommands.get(i).playerName + " said " + //
+				 * usedCommands.get(i).message);
+				 * 
+				 * try { //
+				 * plugin.database.commandUsed(queuedRequests.get(i).player, //
+				 * queuedRequests.get(i).message);
+				 * 
+				 * // if //
+				 * (!Integer.valueOf(queuedRequests.get(i).dur).equals(0)){ //
+				 * queuedRequests.get(i).sender.sendMessage(String.format(
+				 * "§7item: §f%s§7:§f%s§7, stack: §f%s", //
+				 * queuedRequests.get(i).itemID, // queuedRequests.get(i).dur,
+				 * // queuedRequests.get(i).stack)); // }else{
+				 * queuedRequests.get
+				 * (i).sender.sendMessage(String.format("item: %s, stack: %s",
+				 * iDB.getItemName(queuedRequests.get(i).itemID,
+				 * queuedRequests.get(i).dur), queuedRequests.get(i).stack)); //
+				 * }
+				 * 
+				 * stats = database.getItemStats(queuedRequests.get(i).itemID,
+				 * queuedRequests.get(i).dur, getUnixTime() - (60 * 60 * 24));
+				 * // if (stats.total > 0)
+				 * queuedRequests.get(i).sender.sendMessage("1d " +
+				 * getItemStatsMsg(stats, queuedRequests.get(i).stack));
+				 * 
+				 * stats = database.getItemStats(queuedRequests.get(i).itemID,
+				 * queuedRequests.get(i).dur, getUnixTime() - (60 * 60 * 24 *
+				 * 3)); // if (stats.total > 0)
+				 * queuedRequests.get(i).sender.sendMessage("3d " +
+				 * getItemStatsMsg(stats, queuedRequests.get(i).stack));
+				 * 
+				 * stats = database.getItemStats(queuedRequests.get(i).itemID,
+				 * queuedRequests.get(i).dur, getUnixTime() - (60 * 60 * 24 *
+				 * 7)); // if (stats.total > 0)
+				 * queuedRequests.get(i).sender.sendMessage("1w " +
+				 * getItemStatsMsg(stats, queuedRequests.get(i).stack));
+				 * 
+				 * stats = database.getItemStats(queuedRequests.get(i).itemID,
+				 * queuedRequests.get(i).dur, getUnixTime() - (60 * 60 * 24 *
+				 * 30)); // if (stats.total > 0)
+				 * queuedRequests.get(i).sender.sendMessage("1m " +
+				 * getItemStatsMsg(stats, queuedRequests.get(i).stack));
+				 * 
+				 * stats = database.getItemStats(queuedRequests.get(i).itemID,
+				 * queuedRequests.get(i).dur, 0); // if (stats.total > 0)
+				 * queuedRequests.get(i).sender.sendMessage("all " +
+				 * getItemStatsMsg(stats, queuedRequests.get(i).stack));
+				 * 
+				 * } catch (Exception e) { // TODO Auto-generated catch block
+				 * e.printStackTrace(); }
+				 * 
+				 * queuedRequests.remove(i); }
+				 * 
+				 * } }, 0L);
 				 */
 				return true;
 
@@ -516,7 +564,6 @@ public class csStats extends JavaPlugin {
 		return false;
 
 	}
-
 
 	public static String getFinalArg(final String[] args, final int start) {
 		final StringBuilder bldr = new StringBuilder();

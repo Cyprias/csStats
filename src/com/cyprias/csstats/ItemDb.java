@@ -63,11 +63,11 @@ public class ItemDb {
 	static class itemData {
 		String itemName;
 		int itemID;
-		int itemDur;
+		short itemDur;
 		public itemData(String string, String string2, String string3) {
 			itemName = string;
 			itemID = Integer.parseInt(string2);
-			itemDur = Integer.parseInt(string3);;
+			itemDur = Short.parseShort(string3);
 		}
 
 	}
