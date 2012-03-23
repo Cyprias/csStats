@@ -181,22 +181,8 @@ public class csStats extends JavaPlugin {
 			if (iD != null)
 				return iD;
 
-			// iD = new itemDB.itemData("item", string2, string3);
-
 		}
-		/*
-		 * try { ItemDb.itemData iD = iDB.getItemID(input.toLowerCase()); if (iD
-		 * != null) return iD; } catch (Exception e) {e.printStackTrace();}
-		 * 
-		 * try { String itemName; if (input.contains(":")) { String[] temp =
-		 * input.split(":"); itemName =
-		 * iDB.getItemName(Integer.parseInt(temp[0]),
-		 * Integer.parseInt(temp[1])); return new ItemDb.itemData(itemName,
-		 * temp[0], temp[1]); } else { itemName =
-		 * iDB.getItemName(Integer.parseInt(input), 0); return new
-		 * ItemDb.itemData(itemName, input, "0"); } } catch (Exception e)
-		 * {e.printStackTrace();}
-		 */
+
 		return null;
 	}
 
@@ -211,20 +197,7 @@ public class csStats extends JavaPlugin {
 
 		int itemID = player.getItemInHand().getTypeId();
 		int dur = player.getItemInHand().getDurability();
-		String itemName = "NULL";
-
-		/*
-		 * if (args.length == 2) { ItemDb.itemData iD =
-		 * iDB.getItemID(args[1].toLowerCase());
-		 * 
-		 * if (iD != null){ itemID = iD.itemID; dur = iD.itemDur; itemName =
-		 * iD.itemName; }else{
-		 * 
-		 * if (args[1].contains(":")) { String[] temp = args[1].split(":");
-		 * itemID = Integer.parseInt(temp[0]); dur = Integer.parseInt(temp[1]);
-		 * } else { itemID = Integer.parseInt(args[1]); dur = 0; } itemName =
-		 * iDB.getItemName(itemID, dur); } }
-		 */
+		String itemName = iDB.getItemName(itemID, dur);
 
 		if (args.length == 2) {
 			ItemDb.itemData iD = getItemDataFromInput(args[1]);
@@ -277,15 +250,14 @@ public class csStats extends JavaPlugin {
 			public void run() {
 
 				for (int i = queuedCommands.size() - 1; i >= 0; i--) {
-					// plugin.getServer().broadcastMessage(i + ": " +
-					// usedCommands.get(i).playerName + " said " +
-					// usedCommands.get(i).message);
-
-					commandHandler(queuedCommands.get(i).sender, queuedCommands.get(i).cmd, queuedCommands.get(i).commandLabel, queuedCommands.get(i).args);
-
+					try {
+						commandHandler(queuedCommands.get(i).sender, queuedCommands.get(i).cmd, queuedCommands.get(i).commandLabel, queuedCommands.get(i).args);
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 					queuedCommands.remove(i);
 				}
-
 			}
 		}, 0L);
 		return true;
@@ -407,7 +379,6 @@ public class csStats extends JavaPlugin {
 				command_seller(sender, cmd, commandLabel, args);
 				return true;
 			} else if (args[0].equalsIgnoreCase("stats")) {
-				statRequest newReq = new statRequest();
 
 				int itemID = player.getItemInHand().getTypeId();
 				int dur = player.getItemInHand().getDurability();
