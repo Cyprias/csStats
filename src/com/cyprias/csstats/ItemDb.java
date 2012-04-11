@@ -15,7 +15,9 @@ import java.util.logging.Logger;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Item;
 import org.bukkit.permissions.PermissionAttachment;
+import org.bukkit.Material;
 
 public class ItemDb {
 	private csStats plugin;
@@ -26,10 +28,10 @@ public class ItemDb {
 		this.plugin = plugin;
 
 		file = new File(plugin.getDataFolder(), "items.csv");
-		if (!file.exists()) {
+		//if (!file.exists()) {
 			file.getParentFile().mkdirs();
 			copy(plugin.getResource("items.csv"), file);
-		}
+		//}
 		
 		
 		loadFile();
@@ -56,18 +58,22 @@ public class ItemDb {
 	}
 	
 	
+	
 	public String getItemName(int itemID, int itemDur){
-		return idToName.get(itemID+":"+itemDur);
+		if (idToName.containsKey(itemID+":"+itemDur))
+			return idToName.get(itemID+":"+itemDur);
+		
+		return itemID+":"+itemDur;
 	}
 	
 	static class itemData {
 		String itemName;
 		int itemID;
 		short itemDur;
-		public itemData(String string, String string2, String string3) {
+		public itemData(String string, int itemid2, short metaData) {
 			itemName = string;
-			itemID = Integer.parseInt(string2);
-			itemDur = Short.parseShort(string3);
+			itemID = itemid2; //Integer.parseInt(itemid2);
+			itemDur = metaData; //Short.parseShort(metaData);
 		}
 
 	}
@@ -90,17 +96,17 @@ public class ItemDb {
 					//log.info(line.toString());
 					String[] values = line.split(",");
 					
-					sID = values[1]+":"+values[2];
+					
 					//if (values[2] != "0")
 					//	sID = sID+":"+values[2];
 					
 					
 					//log.info(sID + " = " + values[0]);
 					
-					if (!nameToID.containsKey(values[0]))
-						nameToID.put(values[0], new itemData(values[0], values[1], values[2]));
+					//if (!nameToID.containsKey(values[0]))
+						nameToID.put(values[0], new itemData(values[0], Integer.parseInt(values[1]), Short.parseShort(values[2])));
 						
-						
+					sID = values[1]+":"+values[2];
 					if (! idToName.containsKey(sID))
 						idToName.put(sID, values[0]);
 			

@@ -116,17 +116,22 @@ public class Database {
 		double amode;
 	}
 	
-	public ArrayList adminShopBuys(CommandSender sender, long maxAge){
+	public ArrayList adminShopTrans(CommandSender sender, long maxAge, boolean buys){
 		Config.mysqlInfo mysqlInfo  = plugin.config.getMysqlInfo();
 		String SQL = "select * from " + mysqlInfo.table + 
-		" where shop_owner = 'Admin Shop'" + 
-		" and buy = '0'";
+		" where shop_owner = 'Admin Shop'";
+		
+		if (buys == true){
+			SQL+=" and buy = '0'";
+		}else{
+			SQL+=" and buy = '1'";	
+		}
 		
 		if (maxAge != 0)		
-			SQL = SQL+" AND sec >= ?";
+			SQL +=" AND sec >= ?";
 		
 		SQL = SQL + " ORDER BY sec DESC";
-		SQL = SQL + " LIMIT 1000";
+		SQL = SQL + " LIMIT 10000";
 
 		
 		//HashMap<Integer, adminShopStats> items = new HashMap<Integer, adminShopStats>(); //= new HashMap<Integer, itemStats>();

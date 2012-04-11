@@ -110,9 +110,9 @@ public class csStats extends JavaPlugin {
 		ArrayList<Database.adminShopStats> all;
 		if (args.length == 3) {
 			seconds = Integer.parseInt(args[2]) * 60;
-			all = database.adminShopBuys(sender, getUnixTime() - seconds);
+			all = database.adminShopTrans(sender, getUnixTime() - seconds, true);
 		} else {
-			all = database.adminShopBuys(sender, 0);
+			all = database.adminShopTrans(sender, 0, true);
 		}
 
 		// sender.sendMessage(chatPrefix + "Lenth: " + all.size());
@@ -126,8 +126,32 @@ public class csStats extends JavaPlugin {
 
 		return true;
 	}
+	
+	private boolean command_admin_sells(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+		// database.adminShopBuys();
+		int seconds = 0;
 
-	public void command_seller(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+		ArrayList<Database.adminShopStats> all;
+		if (args.length == 3) {
+			seconds = Integer.parseInt(args[2]) * 60;
+			all = database.adminShopTrans(sender, getUnixTime() - seconds, false);
+		} else {
+			all = database.adminShopTrans(sender, 0, false);
+		}
+
+		// sender.sendMessage(chatPrefix + "Lenth: " + all.size());
+
+		for (adminShopStats k : all) { // d gets successively each value in ar.
+			sender.sendMessage(chatPrefix
+				+ String.format("§f%s §7trans: §f%s§7, amount: §f%s§7, value: §f$%s", iDB.getItemName(k.id, k.durability), k.transactions,
+					Database.Round(k.totalAmount, 0), Database.Round(k.totalPrice, 0)));
+
+		}
+
+		return true;
+	}
+	
+	public void command_player(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		if (args.length == 1) {
 			sender.sendMessage(chatPrefix + "§7You need to include a player name.");
 			return;
@@ -171,21 +195,75 @@ public class csStats extends JavaPlugin {
 		} else {
 			itemname = id.toLowerCase();
 		}
-
-		if (itemname == null && itemid > 0) {
-			itemname = iDB.getItemName(itemid, metaData);
+		ItemDb.itemData iD = new ItemDb.itemData(itemname, itemid, metaData);
+		
+		
+		if (iD.itemID == 0 & itemname != null){
+			iD = iDB.getItemID(itemname);
+			//itemid = tmp.itemID;
 		}
 
-		if (itemname != null) {
-			ItemDb.itemData iD = iDB.getItemID(itemname);
-			if (iD != null)
-				return iD;
-
+		if (iD.itemName == null && itemid > 0) {
+			iD.itemName = iDB.getItemName(iD.itemID, iD.itemDur);
 		}
 
-		return null;
+
+		
+		log.info("getItemDataFromInput: itemid: " + itemid + ", metaData: " + metaData + ", itemname: " + iD.itemName);
+
+		return iD;
 	}
 
+	public void command_buyers(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+		Player player;
+		if (sender instanceof Player) {
+			player = (Player) sender;
+		} else {
+			sender.sendMessage("§7You need to be a player to use this command.");
+			return;
+		}
+
+		int itemID = player.getItemInHand().getTypeId();
+		int dur = player.getItemInHand().getDurability();
+		String itemName = iDB.getItemName(itemID, dur);
+
+		if (args.length == 2) {
+			ItemDb.itemData iD = getItemDataFromInput(args[1]);
+			if (iD == null) {
+				sender.sendMessage(chatPrefix + "Cannot find itemID for '" + args[1] + "', Try again.");
+				return;
+			}
+			itemID = iD.itemID;
+			dur = iD.itemDur;
+			itemName = iD.itemName;
+		}
+
+		ArrayList<Seller.sellerInfo> recentTrades = seller.getRecentBuyers(sender, itemID, dur);
+
+		if (recentTrades.size() == 0) {
+			sender.sendMessage(chatPrefix + String.format("§7No one has bought §f%s §7yet.", itemName));
+			return;
+		}
+
+		sender.sendMessage(chatPrefix + String.format("§7The following users have bought §f%s§7.", itemName));
+
+		for (int i = 0; i < recentTrades.size(); i++) {
+			if (recentTrades.get(i).pricePerUnit >= 0.01) {
+				sender.sendMessage(chatPrefix
+					+ String.format("§f%s§7: §f$%s §7per unit §f%s §7ago.", recentTrades.get(i).shop_owner,
+						Database.Round(recentTrades.get(i).pricePerUnit, 2), secondsToString(recentTrades.get(i).age)));
+			}else{
+				sender.sendMessage(chatPrefix
+					+ String.format("§f%s§7: §f$%s §7per 64 §f%s §7ago.", recentTrades.get(i).shop_owner,
+						Database.Round(recentTrades.get(i).pricePerUnit * 64, 2), secondsToString(recentTrades.get(i).age)));
+			}
+			
+
+		}
+		// dPrices[i1] = prices.get(i1);
+
+	}
+	
 	public void command_sellers(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		Player player;
 		if (sender instanceof Player) {
@@ -220,9 +298,17 @@ public class csStats extends JavaPlugin {
 		sender.sendMessage(chatPrefix + String.format("§7The following users have sold §f%s§7.", itemName));
 
 		for (int i = 0; i < recentSellers.size(); i++) {
-			sender.sendMessage(chatPrefix
-				+ String.format("§f%s§7: §f$%s §7per 64 §f%s §7ago.", recentSellers.get(i).shop_owner,
-					Database.Round(recentSellers.get(i).pricePerUnit * 64, 2), secondsToString(recentSellers.get(i).age)));
+			if (recentSellers.get(i).pricePerUnit >= 0.01) {
+				sender.sendMessage(chatPrefix
+					+ String.format("§f%s§7: §f$%s §7per unit §f%s §7ago.", recentSellers.get(i).shop_owner,
+						Database.Round(recentSellers.get(i).pricePerUnit, 2), secondsToString(recentSellers.get(i).age)));
+			}else{
+				sender.sendMessage(chatPrefix
+					+ String.format("§f%s§7: §f$%s §7per 64 §f%s §7ago.", recentSellers.get(i).shop_owner,
+						Database.Round(recentSellers.get(i).pricePerUnit * 64, 2), secondsToString(recentSellers.get(i).age)));
+			}
+			
+
 		}
 		// dPrices[i1] = prices.get(i1);
 
@@ -281,6 +367,7 @@ public class csStats extends JavaPlugin {
 				sender.sendMessage(chatPrefix + "  §aChestShop Stats");
 				sender.sendMessage(chatPrefix + "/css stats [itemID/Name] [stackSize]");
 				sender.sendMessage(chatPrefix + "/css sellers [itemID] - Who sells the item in your hand.");
+				sender.sendMessage(chatPrefix + "/css buyers [itemID] - Who buys the item in your hand.");
 				sender.sendMessage(chatPrefix + "/css seller <player> - Public warps for that player.");
 
 				if (hasPermission(sender, "css.admin"))
@@ -288,61 +375,6 @@ public class csStats extends JavaPlugin {
 
 				return true;
 
-			}
-			if (args[0].equalsIgnoreCase("test") && hasPermission(sender, "csstats.test")) {
-				int itemID = player.getItemInHand().getTypeId();
-				int dur = player.getItemInHand().getDurability();
-				int stack = 1;
-
-				// sender.sendMessage("Enchants: " +
-				// encodeEnchantment(player.getItemInHand().getEnchantments()));
-
-				// public static String getEnchantment(ItemStack item){
-				// / return encodeEnchantment(item.getEnchantments());
-				// }
-
-				if (args.length == 1) {
-					stack = player.getItemInHand().getAmount();
-				}
-
-				if (args.length == 2) {
-					if (args[1].contains(":")) {
-						String[] temp = args[1].split(":");
-						itemID = Integer.parseInt(temp[0]);
-						dur = Integer.parseInt(temp[1]);
-					} else {
-						itemID = Integer.parseInt(args[1]);
-						dur = 0;
-					}
-				}
-
-				if (args.length == 3) {
-					stack = Integer.parseInt(args[2]);
-				}
-
-				sender.sendMessage(chatPrefix + String.format("§7item: §f%s§7, stack: §f%s", iDB.getItemName(itemID, dur), stack));
-
-				Database.itemStats stats = database.getItemStats(itemID, dur, getUnixTime() - (60 * 60 * 24));
-				if (stats.total > 0)
-					sender.sendMessage("1d " + getItemStatsMsg(stats, stack));
-
-				stats = database.getItemStats(itemID, dur, getUnixTime() - (60 * 60 * 24 * 3));
-				if (stats.total > 0)
-					sender.sendMessage("3d " + getItemStatsMsg(stats, stack));
-
-				stats = database.getItemStats(itemID, dur, getUnixTime() - (60 * 60 * 24 * 7));
-				if (stats.total > 0)
-					sender.sendMessage("1w " + getItemStatsMsg(stats, stack));
-
-				stats = database.getItemStats(itemID, dur, getUnixTime() - (60 * 60 * 24 * 30));
-				if (stats.total > 0)
-					sender.sendMessage("1m " + getItemStatsMsg(stats, stack));
-
-				stats = database.getItemStats(itemID, dur, 0);
-				if (stats.total > 0)
-					sender.sendMessage("all " + getItemStatsMsg(stats, stack));
-
-				return true;
 			} else if (args[0].equalsIgnoreCase("db") && hasPermission(sender, "csstats.test")) {
 				database.connectToDB();
 				return true;
@@ -364,26 +396,34 @@ public class csStats extends JavaPlugin {
 			} else if (args[0].equalsIgnoreCase("admin") && hasPermission(sender, "csstats.admin")) {
 				if (args.length == 1) {
 					sender.sendMessage("/css admin buys [lastMinutes] - Stats on admin shop buys.");
+					sender.sendMessage("/css admin sells [lastMinutes] - Stats on admin shop sells.");
 					return true;
 				}
 
 				if (args[1].equalsIgnoreCase("buys")) {
 					command_admin_buys(sender, cmd, commandLabel, args);
 					return true;
+				} if (args[1].equalsIgnoreCase("sells")) {
+					command_admin_sells(sender, cmd, commandLabel, args);
+					return true;
 				}
 
 			} else if (args[0].equalsIgnoreCase("sellers")) {
 				command_sellers(sender, cmd, commandLabel, args);
 				return true;
-			} else if (args[0].equalsIgnoreCase("seller")) {
-				command_seller(sender, cmd, commandLabel, args);
+			} else if (args[0].equalsIgnoreCase("buyers")) {
+				command_buyers(sender, cmd, commandLabel, args);
+				return true;
+			} else if (args[0].equalsIgnoreCase("player")) {
+				command_player(sender, cmd, commandLabel, args);
 				return true;
 			} else if (args[0].equalsIgnoreCase("stats")) {
 
 				int itemID = player.getItemInHand().getTypeId();
 				int dur = player.getItemInHand().getDurability();
 				int stack =  player.getItemInHand().getAmount();
-
+				String itemName = null;
+				
 
 				if (args.length >= 2) {
 
@@ -400,6 +440,7 @@ public class csStats extends JavaPlugin {
 						itemID = iD.itemID;
 						dur = iD.itemDur;
 						stack = 1;
+						itemName = iD.itemName;
 					}else{
 						sender.sendMessage(chatPrefix + "Cannot find ID for '"+args[1]+"', try again.");
 						return true;

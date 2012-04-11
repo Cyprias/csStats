@@ -46,8 +46,8 @@ public class Seller  {
 		
 		Config.mysqlInfo mysqlInfo  = plugin.config.getMysqlInfo();//.config.getMysqlInfo();
 		String SQL = "select * from " + mysqlInfo.table;
-		//SQL = SQL+" WHERE buy = 1";
-		SQL = SQL+" WHERE item_id = ?";
+		SQL = SQL+" WHERE buy = 1";
+		SQL = SQL+" AND item_id = ?";
 		SQL = SQL+" AND item_durability = ?";
 		SQL = SQL+" AND shop_owner != 'Admin Shop'";
 		SQL = SQL+" ORDER BY sec DESC";
@@ -106,5 +106,80 @@ public class Seller  {
 		} catch (SQLException e) {e.printStackTrace();}
 		
 		return sellers;
+	}
+	
+	public ArrayList<sellerInfo> getRecentBuyers(CommandSender sender, int itemID, int dur){
+		Player player;
+		if (sender instanceof Player) {
+			player = (Player) sender;
+		}else{
+			return null;
+		}
+		
+		//int itemID = player.getItemInHand().getTypeId();
+		//int dur = player.getItemInHand().getDurability();
+		
+		Config.mysqlInfo mysqlInfo  = plugin.config.getMysqlInfo();//.config.getMysqlInfo();
+		String SQL = "select * from " + mysqlInfo.table;
+		SQL = SQL+" WHERE buy = 0";
+		SQL = SQL+" AND item_id = ?";
+		SQL = SQL+" AND item_durability = ?";
+		SQL = SQL+" AND shop_owner != 'Admin Shop'";
+		SQL = SQL+" ORDER BY sec DESC";
+		SQL = SQL+" LIMIT 1000";
+		
+		Connection con;
+		PreparedStatement statement;
+		
+		ArrayList<sellerInfo> players = new ArrayList(); // = null;
+		
+		
+		
+		try {
+			con = DriverManager.getConnection(mysqlInfo.URL, mysqlInfo.username, mysqlInfo.password);
+			statement = con.prepareStatement(SQL);
+			statement.setInt(1, itemID);
+			statement.setInt(2, dur);
+			ResultSet result = statement.executeQuery();
+			
+			
+			String shop_owner;
+			int amount;
+			double price;
+			while (result.next()) {
+				
+				if (players.size() <= 10){
+					
+					shop_owner = result.getString(Database.col_shop_owner);
+					amount = result.getInt(Database.col_amount);
+					price = result.getLong(Database.col_price);
+					long sec = result.getLong(Database.col_sec);
+					long age = plugin.getUnixTime() - sec;
+					
+					if (players != null && players.size() > 0){
+						for (int i = 0; i < players.size(); i++) {  // i indexes each element successively.
+							if (players.get(i).shop_owner.equalsIgnoreCase(shop_owner)){
+								
+								
+								
+								break;
+							}else if (i == (players.size()-1)){
+								players.add(players.size(), 
+									new sellerInfo(shop_owner, price/amount, age)
+								);
+							}
+						}
+					}else{
+						players.add(players.size(), 
+							new sellerInfo(shop_owner, price/amount, age)
+						);
+					}
+
+				}
+					
+			}
+		} catch (SQLException e) {e.printStackTrace();}
+		
+		return players;
 	}
 }
