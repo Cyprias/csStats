@@ -209,7 +209,7 @@ public class csStats extends JavaPlugin {
 
 
 		
-		log.info("getItemDataFromInput: itemid: " + itemid + ", metaData: " + metaData + ", itemname: " + iD.itemName);
+		//log.info("getItemDataFromInput: itemid: " + itemid + ", metaData: " + metaData + ", itemname: " + iD.itemName);
 
 		return iD;
 	}
