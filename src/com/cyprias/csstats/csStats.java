@@ -294,6 +294,11 @@ public class csStats extends JavaPlugin {
 	}
 
 	public void command_buy(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+		String boughtItem = "§7Bought §f%s §f%s §7for $§f%s§7+§f%s §7from §f%s§7.";
+		//§7
+		
+		
+		
 		Player player;
 		if (sender instanceof Player) {
 			player = (Player) sender;
@@ -433,6 +438,7 @@ public class csStats extends JavaPlugin {
 		Inventory inventory;
 		float price;
 		double taxAmount;
+		boolean bought = false;
 		
 		for (int i = 0; i < shops.size() && amountWanted > 0 ; i++) {
 			if (playerHasEmptySlot(player) == false) {
@@ -455,8 +461,9 @@ public class csStats extends JavaPlugin {
 				
 				slot = inventory.getItem(s);
 
-				
+
 				 
+					
 				
 				if (slot != null) {
 					//info ("B i: " + i + ", s: " + s + " slot: " + slot);
@@ -471,32 +478,40 @@ public class csStats extends JavaPlugin {
 							price = (shop.buyPrice * amountWanted);
 							taxAmount = price * Config.convenienceTax;
 							
+							info(player.getName() + " balance: " + getBalance(player.getName()));
+							
 							if (getBalance(player.getName()) > (price+taxAmount)){
-									sendMessage(player, "A Bought " + amountWanted + " " + itemID + " for $" + price +"+"+ taxAmount + " from " + shop.owner);
+									sendMessage(player, String.format(boughtItem, amountWanted, itemID, price, taxAmount, shop.owner));
 								uInventory.add(player.getInventory(), items, amountWanted);
+								
+								
+								
 								
 								amountWanted = 0;
 								
 								debtPlayer(player.getName(), price*Config.convenienceTax);
 								payPlayer(shop.owner, price);
+								bought = true;
 							}
 							break;
 						}
 						price = (shop.buyPrice * slot.getAmount());
 						taxAmount = price * Config.convenienceTax;
 						
+						info(player.getName() + " balance: " + getBalance(player.getName()));
 						if (getBalance(player.getName()) > (price+taxAmount)){
 						
 							debtPlayer(player.getName(), price+taxAmount);
 							payPlayer(shop.owner, price);
 							
 							
-							sendMessage(player, "B Bought " + slot.getAmount() + " " + itemID + " for $" + price + "+" + taxAmount + " from " + shop.owner);
+							sendMessage(player, String.format(boughtItem, slot.getAmount(), itemID, price, taxAmount, shop.owner));
 							uInventory.add(player.getInventory(), items, slot.getAmount());
 							
 							
 							amountWanted -= slot.getAmount();
 							inventory.removeItem(slot);
+							bought= true;
 						}
 						
 
@@ -505,9 +520,11 @@ public class csStats extends JavaPlugin {
 				}
 
 			}
-
 		}
-
+		if (bought == false){
+			sendMessage(player, "No " + itemID + " in your price range.");
+		}
+		
 	}
 
 	public boolean playerHasEmptySlot(Player player){
@@ -802,7 +819,7 @@ public class csStats extends JavaPlugin {
 				command_player(sender, cmd, commandLabel, args);
 				return true;
 
-			} else if (args[0].equalsIgnoreCase("buy")) {
+			} else if (args[0].equalsIgnoreCase("buy") && hasPermission(sender, "csstats.buy")) {
 				command_buy(sender, cmd, commandLabel, args);
 				return true;
 

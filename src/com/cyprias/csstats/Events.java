@@ -7,14 +7,17 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -53,6 +56,7 @@ public class Events implements Listener {
 		Y= block.getY();
 		Z= block.getZ();
 
+	
 		//plugin.info("BlockBreakEvent: " + X + " " + Y + " " + Z);
 		String world = block.getWorld().getName();
 		String SQL = "DELETE FROM `%s` WHERE `x` = '%s' AND `y` = '%s' AND `z` = '%s' AND `world` = '%s';";
@@ -62,7 +66,7 @@ public class Events implements Listener {
 		SQL = String.format(SQL, plugin.database.shopTable, X, Y, Z, world);
 		
 
-		plugin.info("BlockBreakEvent SQL: " + SQL);
+		//plugin.info("BlockBreakEvent SQL: " + SQL);
 		
 		try {
 			Connection con = DriverManager.getConnection(mysqlInfo.URL, mysqlInfo.username, mysqlInfo.password);
@@ -77,14 +81,14 @@ public class Events implements Listener {
 		
 	}
 	
-	@EventHandler
-	public void onPlayerInteract(PlayerInteractEvent event) {
-		Action action = event.getAction();
-		Block block = event.getClickedBlock();
-
-		if (action != Action.RIGHT_CLICK_BLOCK)
-			return; // exiting handler due to it not being the right kind of
-					// block interact
+	@EventHandler(priority = EventPriority.MONITOR)
+	public void onSignChangeEvent(SignChangeEvent event){
+		if (event.isCancelled()) {
+			return;
+		}
+		
+		Block block = event.getBlock();
+	    Player player = event.getPlayer();
 
 		if (!(block.getState() instanceof Sign))
 			return; // exiting due to the block not being a sign
@@ -93,19 +97,32 @@ public class Events implements Listener {
 		if (!(blockbelow.getState() instanceof Chest))
 			return; // exiting due to the block below the sign not being a chest
 
+		if (plugin.hasPermission(player, "mcego.shop.register"))
+			plugin.sendMessage(player, "§7Rightclick the shop sign to register it with ChestShopStats.");
+		
+	}
+	
+	public void checkForSign(Block block, Player player){
+		
+		
+		if (!(block.getState() instanceof Sign))
+			return; // exiting due to the block not being a sign
+		Block blockbelow = block.getRelative(0, -1, 0);
+		if (!(blockbelow.getState() instanceof Chest))
+			return; // exiting due to the block below the sign not being a chest
+
+		
 		Sign sign = (Sign) block.getState(); // exiting due to the sign being
 												// improperly formatted
+
 		if (!uSign.isValid(sign))
 			return;
+		
+		
+		//Chest chest = (Chest) blockbelow.getState();
 
-		Chest chest = (Chest) blockbelow.getState();
-		Player player = event.getPlayer();
-
-		// Inventory chestInv = chest.getInventory();
-		int amt;
-		String owner, amount, signMat, world = block.getWorld().getName();
+		String owner, amount, signMat = block.getWorld().getName();
 		Location loc = block.getLocation();
-		boolean chestHasEnoughMat = false;
 
 		// try catch around following three lines removed because there should
 		// be no problem getting data from the sign since it will be valid
@@ -114,39 +131,25 @@ public class Events implements Listener {
 		owner = sign.getLine(0);
 		amount = sign.getLine(1);
 
-		amt = Integer.parseInt(amount);
-		if (!player.getDisplayName().equalsIgnoreCase(owner)) // owners don't
-																// buy from
-																// chests when
-																// they right
-																// click - add
-																// any other
-																// conditions
-																// here that
-																// will prevent
-																// error below:
-			amt *= 2; // recognizes almost empty chests when players are buying.
-						// If player unsuccessfully buys, will warn players that
-						// their chests are almost out of stock even though they
-						// will have one full transaction that can be made
 
 		ItemStack stack = Items.getItemStack(signMat);
-		short damageVal = stack.getDurability();
-		ChestObject chObj = new MinecraftChest(chest);
-		chestHasEnoughMat = chObj.hasEnough(stack, amt, damageVal);
+		//short damageVal = stack.getDurability();
+		//ChestObject chObj = new MinecraftChest(chest);
 
-		// plugin.log.info("foundShopSign owner:" + owner);
-		// plugin.log.info("foundShopSign getTypeId:" + stack.getTypeId());
-		// plugin.log.info("foundShopSign getDurability:" +
-		// stack.getDurability());
-		// plugin.log.info("foundShopSign amt:" + amt);
-		// plugin.log.info("foundShopSign amount:" + amount);
-		// plugin.log.info("foundShopSign signMat:" + signMat);
+		foundShopSign(loc, owner, Integer.parseInt(amount), stack, player);
+	}
+	
+	@EventHandler(priority = EventPriority.NORMAL)
+	public void onPlayerInteract(PlayerInteractEvent event) {
+		Action action = event.getAction();
+		Block block = event.getClickedBlock();
 
-		// YmlManager.addShop(owner, loc.getX(), loc.getY(), loc.getZ(), world);
-		// foundShopSign(owner, loc.getX(), loc.getY(), loc.getZ(), world);
+		if (action != Action.RIGHT_CLICK_BLOCK)
+			return; // exiting handler due to it not being the right kind of
+					// block interact
 
-		foundShopSign(loc, owner, Integer.parseInt(amount), stack);
+
+		checkForSign(block, event.getPlayer());
 	}
 
 	public int isShopInDB(String world, int X, int Y, int Z) {
@@ -190,7 +193,7 @@ public class Events implements Listener {
 
 	
 	
-	public void foundShopSign(Location loc, String owner, int amount, ItemStack stack) {
+	public void foundShopSign(Location loc, String owner, int amount, ItemStack stack, Player player) {
 		/*
 		plugin.log.info("foundShopSign getWorld:" + loc.getWorld().getName());
 		plugin.log.info("foundShopSign getBlockX:" + loc.getBlockX());
@@ -245,6 +248,8 @@ public class Events implements Listener {
 		//plugin.log.info("foundShopSign SQL:" + SQL);
 		
 		
+		
+		
 		try {
 			Connection con = DriverManager.getConnection(mysqlInfo.URL, mysqlInfo.username, mysqlInfo.password);
 			PreparedStatement statement = con.prepareStatement(SQL);
@@ -256,8 +261,10 @@ public class Events implements Listener {
 		}
 		
 		
-		
-		
+		if (isInDB == 0){
+			if (plugin.hasPermission(player, "mcego.shop.register")) //don't want everyone seeing the msg while we're testing.
+				plugin.sendMessage(player, "§7Shop registered.");
+		}
 
 		
 		
