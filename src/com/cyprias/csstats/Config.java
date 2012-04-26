@@ -20,6 +20,9 @@ public class Config extends JavaPlugin {
 	FileConfiguration mysql = new YamlConfiguration();
 
 	
+	
+	public static double convenienceTax;
+	
 	public Config(csStats plugin) {
 		this.plugin = plugin;
 
@@ -27,6 +30,8 @@ public class Config extends JavaPlugin {
 		config.options().copyDefaults(true);
 		// config.set("version", plugin.version);
 		plugin.saveConfig();
+		
+		convenienceTax = config.getDouble("convenienceTax");
 		
 	}
 

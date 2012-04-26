@@ -67,7 +67,7 @@ public class ItemDb {
 	}
 	
 	static class itemData {
-		String itemName;
+		String itemName = "null";
 		int itemID;
 		short itemDur;
 		public itemData(String string, int itemid2, short metaData) {
@@ -75,7 +75,6 @@ public class ItemDb {
 			itemID = itemid2; //Integer.parseInt(itemid2);
 			itemDur = metaData; //Short.parseShort(metaData);
 		}
-
 	}
 	HashMap<String, itemData> nameToID = new HashMap<String, itemData>();
 	HashMap<String,String> idToName = new HashMap<String,String>();

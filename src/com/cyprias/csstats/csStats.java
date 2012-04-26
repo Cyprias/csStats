@@ -1,8 +1,14 @@
 package com.cyprias.csstats;
 
 import java.io.File;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -10,17 +16,31 @@ import java.util.Map;
 import java.util.TreeSet;
 import java.util.logging.Logger;
 
+import net.milkbowl.vault.economy.Economy;
+
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
+import org.bukkit.block.Block;
+import org.bukkit.block.Chest;
+import org.bukkit.block.Sign;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.Acrobot.ChestShop.Chests.ChestObject;
+import com.Acrobot.ChestShop.Chests.MinecraftChest;
+import com.Acrobot.ChestShop.Items.Items;
+import com.Acrobot.ChestShop.Utils.uInventory;
+import com.Acrobot.ChestShop.Utils.uSign;
 import com.cyprias.csstats.Database.adminShopStats;
 import com.cyprias.csstats.ItemDb.itemData;
+import com.cyprias.csstats.csStats.signShop;
 
 public class csStats extends JavaPlugin {
 	public static File folder = new File("plugins/csStats");
@@ -30,6 +50,7 @@ public class csStats extends JavaPlugin {
 	public Config config;
 	public Seller seller;
 	public ItemDb iDB;
+	public Events events;
 	public Warps warps;
 	public Database database;
 	public static Server server;
@@ -37,8 +58,11 @@ public class csStats extends JavaPlugin {
 	public static Logger log = Logger.getLogger("Minecraft");
 
 	private String stPluginEnabled = chatPrefix + "§f%s §7v§f%s §7is enabled.";
-
+	private csStats plugin;
+	public static Economy econ = null;
+	
 	public void onEnable() {
+		plugin = this;
 		server = getServer();
 		name = this.getDescription().getName();
 		version = this.getDescription().getVersion();
@@ -48,10 +72,16 @@ public class csStats extends JavaPlugin {
 		database = new Database(this);
 		iDB = new ItemDb(this);
 		warps = new Warps(this);
-
+		events = new Events(this);
 		seller = new Seller(this);
 
+		server.getPluginManager().registerEvents(events, this);
+
 		log.info(String.format(stPluginEnabled, name, version));
+	}
+
+	public void info(String msg) {
+		getServer().getConsoleSender().sendMessage(chatPrefix + msg);
 	}
 
 	private String getItemStatsMsg(Database.itemStats stats, int stackCount) {
@@ -70,6 +100,54 @@ public class csStats extends JavaPlugin {
 			+ "§7, mode: $§f" + Database.Round(stats.mode * stackCount, roundTo);
 	}
 
+	public boolean setupEconomy() {
+		if (getServer().getPluginManager().getPlugin("Vault") == null) {
+			return false;
+		}
+		RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
+		if (rsp == null) {
+			return false;
+		}
+		econ = rsp.getProvider();
+		return econ != null;
+	}
+	
+	public double getBalance(String pName) {
+		if (setupEconomy()) {
+			return econ.getBalance(pName);
+		}
+		return 0;
+	}
+
+	public boolean payPlayer(String pName, double amount) {
+		pName = pName.toLowerCase();
+		if (setupEconomy()) {
+			// return econ.getBalance(pName);
+			if (!econ.hasAccount(pName))
+				econ.createPlayerAccount(pName);
+			
+			econ.depositPlayer(pName.toLowerCase(), amount);
+			return true;
+		}
+		return false;
+	}
+	
+	public boolean debtPlayer(String pName, double amount) {
+		pName = pName.toLowerCase();
+		if (setupEconomy()) {
+			
+			
+			
+			if (!econ.hasAccount(pName))
+				econ.createPlayerAccount(pName);
+			
+			econ.withdrawPlayer(pName.toLowerCase(), amount);
+			
+			return true;
+		}
+		return false;
+	}
+	
 	public static String encodeEnchantment(Map<Enchantment, Integer> map) {
 		int integer = 0;
 		for (Map.Entry<Enchantment, Integer> entry : map.entrySet()) {
@@ -126,7 +204,7 @@ public class csStats extends JavaPlugin {
 
 		return true;
 	}
-	
+
 	private boolean command_admin_sells(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		// database.adminShopBuys();
 		int seconds = 0;
@@ -150,7 +228,7 @@ public class csStats extends JavaPlugin {
 
 		return true;
 	}
-	
+
 	public void command_player(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		if (args.length == 1) {
 			sender.sendMessage(chatPrefix + "§7You need to include a player name.");
@@ -193,25 +271,332 @@ public class csStats extends JavaPlugin {
 			itemname = id.split("[:+',;.]")[0].toLowerCase();
 			metaData = Short.parseShort(id.split("[:+',;.]")[1]);
 		} else {
-			itemname = id.toLowerCase();
+			itemname = id;
 		}
+
+		// info ("getItemDataFromInput itemname: " + itemname);
+		// info ("getItemDataFromInput itemid: " + itemid);
+		// info ("getItemDataFromInput metaData: " + metaData);
+
 		ItemDb.itemData iD = new ItemDb.itemData(itemname, itemid, metaData);
-		
-		
-		if (iD.itemID == 0 & itemname != null){
+
+		if (iD.itemID == 0 && itemname != null) {
 			iD = iDB.getItemID(itemname);
-			//itemid = tmp.itemID;
 		}
+		if (iD == null)
+			return null;
 
 		if (iD.itemName == null && itemid > 0) {
-			iD.itemName = iDB.getItemName(iD.itemID, iD.itemDur);
+			iD.itemName = iDB.getItemName(itemid, metaData);
 		}
 
+		return iD;
+	}
+
+	public void command_buy(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+		Player player;
+		if (sender instanceof Player) {
+			player = (Player) sender;
+		} else {
+			sender.sendMessage("§7You need to be a player to use this command.");
+			return;
+		}
+
+		int itemID = player.getItemInHand().getTypeId();
+		short dur = player.getItemInHand().getDurability();
+		String itemName = iDB.getItemName(itemID, dur);
+
+		int amountWanted = 1;
+
+		if (args.length >= 2) {
+			ItemDb.itemData iD = getItemDataFromInput(args[1]);
+			if (iD == null) {
+				sender.sendMessage(chatPrefix + "Cannot find itemID for '" + args[1] + "', Try again.");
+				return;
+			}
+			itemID = iD.itemID;
+			dur = iD.itemDur;
+			itemName = iD.itemName;
+		}
+		if (args.length >= 3) {
+			amountWanted = Integer.parseInt(args[2].toString());
+		}
+		
+		
+		
+		info("command_buy itemID:" + itemID);
+		info("command_buy dur:" + dur);
+		info("command_buy itemName:" + itemName);
+		info("command_buy amountWanted: " + amountWanted);
+		
+		// ////////////////////////////////////////////////////
+		Config.mysqlInfo mysqlInfo = plugin.config.getMysqlInfo();
+
+		String world = player.getWorld().getName();
+
+		String SQL = "SELECT * FROM `" + plugin.database.shopTable
+			+ "` WHERE `TypeId` = ? AND `Durability` = ? AND `world` = ? AND `enchantments` = 0 ORDER BY unixtime DESC LIMIT 100";
+		// SQL = String.format(SQL, plugin.database.shopTable, itemID, dur);
+
+		// info("command_buy SQL:" + SQL);
+
+		List<signShop> shops = new ArrayList<signShop>();
+		Block block;
+		Chest chest;
+
+		try {
+			Connection con = DriverManager.getConnection(mysqlInfo.URL, mysqlInfo.username, mysqlInfo.password);
+			PreparedStatement statement = con.prepareStatement(SQL);
+
+			statement.setInt(1, itemID);
+			statement.setInt(2, dur);
+			statement.setString(3, world);
+
+			ResultSet result = statement.executeQuery();
+
+			int id, X, Y, Z;
+
+			int chestAmount;
+			Block blockbelow;
+			String owner;
+			
+			boolean shopFound = false;
+			
+			while (result.next()) {
+				shopFound = true;
+				id = result.getInt(1);
+				X = result.getInt(7);
+				Y = result.getInt(8);
+				Z = result.getInt(9);
+
+				plugin.info("id " + id + " " + X + " " + Y + " " + Z);
+
+				block = server.getWorlds().get(0).getBlockAt(X, Y, Z);
+
+				Sign sign = (Sign) block.getState();
+
+				int signAmount = Integer.parseInt(sign.getLine(1));
+				
+				
+				
+				float buyPrice = uSign.buyPrice(sign.getLine(2)) / signAmount;
+				float sellPrice = uSign.sellPrice(sign.getLine(2)) / signAmount;
+
+				if (buyPrice > 0) {
+
+					// plugin.info("buyPrice: " + buyPrice);
+					// plugin.info("sellPrice: " + sellPrice);
+					blockbelow = block.getRelative(0, -1, 0);
+					owner = sign.getLine(0);
+
+					if ((blockbelow.getState() instanceof Chest)) {
+
+						chest = (Chest) blockbelow.getState();
+						chestAmount = chestContainsItem(chest, itemID, dur);
+
+						if (chestAmount > 0) {
+							// plugin.info("Chest has item!");
+
+							shops.add(shops.size(), new signShop(world, X, Y, Z, itemID, dur, chestAmount, buyPrice, sellPrice, owner, chest));
+							//
+
+						}
+
+					}
+				}
+
+			}
+			result.close();
+			statement.close();
+			con.close();
+
+			if (shopFound == false){
+				sendMessage(player, "No shops found containing " + itemName + ".");
+				
+				return;
+			}
+			
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		//Sort cheapest first. 
+		CompareShopBuyPrice comparator = new CompareShopBuyPrice();
+		Collections.sort(shops, comparator);
+
+		signShop shop;
+		ItemStack slot;
+		ItemStack items = new ItemStack(itemID, dur);
 
 		
-		//log.info("getItemDataFromInput: itemid: " + itemid + ", metaData: " + metaData + ", itemname: " + iD.itemName);
+		Inventory inventory;
+		float price;
+		double taxAmount;
+		
+		for (int i = 0; i < shops.size() && amountWanted > 0 ; i++) {
+			if (playerHasEmptySlot(player) == false) {
+				sendMessage(player, "You need more empty slots.");
+				break;
+			}
+			
+			shop = shops.get(i);
+			//plugin.info("A " + i + ": " + shop.buyPrice + " > " + shop.amount);
+			
+			
+			
+			inventory = shop.chest.getInventory();
+			
+			for (int s = 0; s < inventory.getSize() && amountWanted > 0; s++) {
+				if (playerHasEmptySlot(player) == false) {
+					break;
+				}
+				
+				
+				slot = inventory.getItem(s);
 
-		return iD;
+				
+				 
+				
+				if (slot != null) {
+					//info ("B i: " + i + ", s: " + s + " slot: " + slot);
+					
+					if (slot.getTypeId() == itemID && slot.getDurability() == dur) {
+						info ("C i: " + i + ", s: " + s + " slot: " + slot + " , amountWanted: " + amountWanted);
+						
+						
+						if (slot.getAmount() > amountWanted) {
+							slot.setAmount(slot.getAmount() - amountWanted);
+
+							price = (shop.buyPrice * amountWanted);
+							taxAmount = price * Config.convenienceTax;
+							
+							if (getBalance(player.getName()) > (price+taxAmount)){
+									sendMessage(player, "A Bought " + amountWanted + " " + itemID + " for $" + price +"+"+ taxAmount + " from " + shop.owner);
+								uInventory.add(player.getInventory(), items, amountWanted);
+								
+								amountWanted = 0;
+								
+								debtPlayer(player.getName(), price*Config.convenienceTax);
+								payPlayer(shop.owner, price);
+							}
+							break;
+						}
+						price = (shop.buyPrice * slot.getAmount());
+						taxAmount = price * Config.convenienceTax;
+						
+						if (getBalance(player.getName()) > (price+taxAmount)){
+						
+							debtPlayer(player.getName(), price+taxAmount);
+							payPlayer(shop.owner, price);
+							
+							
+							sendMessage(player, "B Bought " + slot.getAmount() + " " + itemID + " for $" + price + "+" + taxAmount + " from " + shop.owner);
+							uInventory.add(player.getInventory(), items, slot.getAmount());
+							
+							
+							amountWanted -= slot.getAmount();
+							inventory.removeItem(slot);
+						}
+						
+
+					}
+
+				}
+
+			}
+
+		}
+
+	}
+
+	public boolean playerHasEmptySlot(Player player){
+		
+		PlayerInventory inventory = player.getInventory();
+		
+		for (int s = 0; s < inventory.getSize(); s++) {
+			if (inventory.getItem(s) == null)
+				return true;
+		}
+		return false;
+	}
+	
+	public class CompareShopBuyPrice implements Comparator<signShop> {
+
+		@Override
+		public int compare(signShop o1, signShop o2) {
+			// TODO Auto-generated method stub
+			double rank1 = o1.buyPrice;
+			double rank2 = o2.buyPrice;
+
+			if (rank1 > rank2) {
+				return +1;
+			} else if (rank1 < rank2) {
+				return -1;
+			} else {
+				return 0;
+			}
+		}
+	}
+
+	public void sendMessage(CommandSender sender, String message) {
+		// final String message = Util.getFinalArg(string, 0);
+		if (sender instanceof Player) {
+			info(sender.getName() + "->" + message);
+		}
+		sender.sendMessage(chatPrefix + message);
+	}
+
+	public static class signShop {
+		public signShop(String world2, int x2, int y2, int z2, int itemID2, short dur2, int chestAmount, float buyPrice2, float sellPrice2, String owner2,
+			Chest chest2) {
+			world = world2;
+			X = x2;
+			Y = y2;
+			Z = z2;
+			itemID = itemID2;
+			dur = dur2;
+			amount = chestAmount;
+			buyPrice = buyPrice2;
+			sellPrice = sellPrice2;
+			owner = owner2;
+			chest = chest2;
+		}
+
+		int X = 0;
+		int Y = 0;
+		int Z = 0;
+		String world = "world";
+		int amount = 0;
+		float buyPrice = -1;
+		float sellPrice = -1;
+		int itemID = 0;
+		int dur = 0;
+		String owner = "Unknown";
+		Chest chest;
+
+		// public signShop(int id2, int Idurability, int i, double price, int
+		// amount) {
+		// id = id2;
+		// durability = Idurability;
+		// transactions = i;
+		// totalPrice = price;
+		// totalAmount = amount;
+		// }
+	}
+
+	public int chestContainsItem(Chest chest, int itemID, short itemDur) {
+		ItemStack slot;
+		int size = 0;
+
+		for (int i = 0; i < chest.getInventory().getSize(); i++) {
+			slot = chest.getInventory().getItem(i);
+			if (slot != null) {
+				if (slot.getTypeId() == itemID && slot.getDurability() == itemDur)
+					size += slot.getAmount();
+			}
+		}
+		return size;
 	}
 
 	public void command_buyers(CommandSender sender, Command cmd, String commandLabel, String[] args) {
@@ -252,18 +637,17 @@ public class csStats extends JavaPlugin {
 				sender.sendMessage(chatPrefix
 					+ String.format("§f%s§7: §f$%s §7per unit §f%s §7ago.", recentTrades.get(i).shop_owner,
 						Database.Round(recentTrades.get(i).pricePerUnit, 2), secondsToString(recentTrades.get(i).age)));
-			}else{
+			} else {
 				sender.sendMessage(chatPrefix
 					+ String.format("§f%s§7: §f$%s §7per 64 §f%s §7ago.", recentTrades.get(i).shop_owner,
 						Database.Round(recentTrades.get(i).pricePerUnit * 64, 2), secondsToString(recentTrades.get(i).age)));
 			}
-			
 
 		}
 		// dPrices[i1] = prices.get(i1);
 
 	}
-	
+
 	public void command_sellers(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		Player player;
 		if (sender instanceof Player) {
@@ -302,12 +686,11 @@ public class csStats extends JavaPlugin {
 				sender.sendMessage(chatPrefix
 					+ String.format("§f%s§7: §f$%s §7per unit §f%s §7ago.", recentSellers.get(i).shop_owner,
 						Database.Round(recentSellers.get(i).pricePerUnit, 2), secondsToString(recentSellers.get(i).age)));
-			}else{
+			} else {
 				sender.sendMessage(chatPrefix
 					+ String.format("§f%s§7: §f$%s §7per 64 §f%s §7ago.", recentSellers.get(i).shop_owner,
 						Database.Round(recentSellers.get(i).pricePerUnit * 64, 2), secondsToString(recentSellers.get(i).age)));
 			}
-			
 
 		}
 		// dPrices[i1] = prices.get(i1);
@@ -403,7 +786,8 @@ public class csStats extends JavaPlugin {
 				if (args[1].equalsIgnoreCase("buys")) {
 					command_admin_buys(sender, cmd, commandLabel, args);
 					return true;
-				} if (args[1].equalsIgnoreCase("sells")) {
+				}
+				if (args[1].equalsIgnoreCase("sells")) {
 					command_admin_sells(sender, cmd, commandLabel, args);
 					return true;
 				}
@@ -417,13 +801,17 @@ public class csStats extends JavaPlugin {
 			} else if (args[0].equalsIgnoreCase("player")) {
 				command_player(sender, cmd, commandLabel, args);
 				return true;
+
+			} else if (args[0].equalsIgnoreCase("buy")) {
+				command_buy(sender, cmd, commandLabel, args);
+				return true;
+
 			} else if (args[0].equalsIgnoreCase("stats")) {
 
 				int itemID = player.getItemInHand().getTypeId();
 				int dur = player.getItemInHand().getDurability();
-				int stack =  player.getItemInHand().getAmount();
+				int stack = player.getItemInHand().getAmount();
 				String itemName = null;
-				
 
 				if (args.length >= 2) {
 
@@ -441,8 +829,8 @@ public class csStats extends JavaPlugin {
 						dur = iD.itemDur;
 						stack = 1;
 						itemName = iD.itemName;
-					}else{
-						sender.sendMessage(chatPrefix + "Cannot find ID for '"+args[1]+"', try again.");
+					} else {
+						sender.sendMessage(chatPrefix + "Cannot find ID for '" + args[1] + "', try again.");
 						return true;
 					}
 
@@ -465,16 +853,13 @@ public class csStats extends JavaPlugin {
 					if (args[2].matches("^\\d+$")) {
 						stack = Integer.parseInt(args[2]);
 					}
-					
+
 					/*
-					ItemDb.itemData iD = getItemDataFromInput(args[2]);
-					if (iD == null) {
-						sender.sendMessage(chatPrefix + "Cannot find itemID for '" + args[2] + "', Try again.");
-						return true;
-					}
-					itemID = iD.itemID;
-					dur = iD.itemDur;
-*/
+					 * ItemDb.itemData iD = getItemDataFromInput(args[2]); if
+					 * (iD == null) { sender.sendMessage(chatPrefix +
+					 * "Cannot find itemID for '" + args[2] + "', Try again.");
+					 * return true; } itemID = iD.itemID; dur = iD.itemDur;
+					 */
 				}
 
 				sender.sendMessage(chatPrefix + String.format("§7item: §f%s§7, stack: §f%s", iDB.getItemName(itemID, dur), stack));
