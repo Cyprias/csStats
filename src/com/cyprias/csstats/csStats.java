@@ -135,14 +135,12 @@ public class csStats extends JavaPlugin {
 	public boolean debtPlayer(String pName, double amount) {
 		pName = pName.toLowerCase();
 		if (setupEconomy()) {
-			
-			
-			
+
 			if (!econ.hasAccount(pName))
 				econ.createPlayerAccount(pName);
-			
-			econ.withdrawPlayer(pName.toLowerCase(), amount);
-			
+
+			econ.withdrawPlayer(pName, amount);
+
 			return true;
 		}
 		return false;
@@ -294,7 +292,7 @@ public class csStats extends JavaPlugin {
 	}
 
 	public void command_buy(CommandSender sender, Command cmd, String commandLabel, String[] args) {
-		String boughtItem = "§7Bought §f%s §f%s:%s §7for $§f%s§7+§f%s §7from §f%s§7.";
+		String boughtItem = "§7Bought §f%s §f%s §7for $§f%s§7+§f%s §7from §f%s§7.";
 		//§7
 		if (args.length == 1) {
 			sender.sendMessage(chatPrefix + "You need to add a itemID/name.");
@@ -332,10 +330,10 @@ public class csStats extends JavaPlugin {
 		
 		
 		
-		info("command_buy itemID:" + itemID);
-		info("command_buy dur:" + dur);
-		info("command_buy itemName:" + itemName);
-		info("command_buy amountWanted: " + amountWanted);
+		//info("command_buy itemID:" + itemID);
+		//info("command_buy dur:" + dur);
+		//info("command_buy itemName:" + itemName);
+		//info("command_buy amountWanted: " + amountWanted);
 		
 		// ////////////////////////////////////////////////////
 		Config.mysqlInfo mysqlInfo = plugin.config.getMysqlInfo();
@@ -482,40 +480,51 @@ public class csStats extends JavaPlugin {
 							price = (shop.buyPrice * amountWanted);
 							taxAmount = price * Config.convenienceTax;
 							
-							info(player.getName() + " balance: " + getBalance(player.getName()));
+							//info(player.getName() + " balance: " + getBalance(player.getName()));
 							
 							if (getBalance(player.getName()) > (price+taxAmount)){
-								sendMessage(player, String.format(boughtItem, amountWanted, itemID, dur, price, Database.Round(taxAmount,2), shop.owner));
+								sendMessage(player, String.format(boughtItem, amountWanted, plugin.iDB.getItemName(itemID, dur), price, Database.Round(taxAmount,2), shop.owner));
 								uInventory.add(player.getInventory(), items, amountWanted);
 								
 								
 								
+								notifyOwnerOfPurchase(shop.owner, player, itemID, dur, amountWanted, price);
 								
 								amountWanted = 0;
 								
-								debtPlayer(player.getName(), price+Config.convenienceTax);
+								
+								
+								
+								
+								debtPlayer(player.getName(), (price+taxAmount));
 								payPlayer(shop.owner, price);
 								bought = true;
+								
+								
+								
+								
 							}
 							break;
 						}
 						price = (shop.buyPrice * slot.getAmount());
 						taxAmount = price * Config.convenienceTax;
 						
-						info(player.getName() + " balance: " + getBalance(player.getName()));
+						//info(player.getName() + " balance: " + getBalance(player.getName()));
 						if (getBalance(player.getName()) > (price+taxAmount)){
 						
 							debtPlayer(player.getName(), price+taxAmount);
 							payPlayer(shop.owner, price);
 							
 							
-							sendMessage(player, String.format(boughtItem, slot.getAmount(), itemID, dur, price, Database.Round(taxAmount,2), shop.owner));
+							sendMessage(player, String.format(boughtItem, slot.getAmount(), plugin.iDB.getItemName(itemID, dur), price, Database.Round(taxAmount,2), shop.owner));
 							uInventory.add(player.getInventory(), items, slot.getAmount());
 							
-							
+							notifyOwnerOfPurchase(shop.owner, player, itemID, dur, slot.getAmount(), price);
 							amountWanted -= slot.getAmount();
 							inventory.removeItem(slot);
 							bought= true;
+							
+							
 						}
 						
 
@@ -531,6 +540,19 @@ public class csStats extends JavaPlugin {
 		
 	}
 
+	public void notifyOwnerOfPurchase(String ownerName, Player user, int itemID, int dur, int Amount, double price){
+		Player owner = 	server.getPlayer(ownerName);
+		
+		if (owner != null){
+			String notifyBuy = "§f%s §7bought §f%s %s§7 §7($§f%s§7) §7from you.";
+			plugin.sendMessage(owner, String.format(notifyBuy, user.getDisplayName(), Amount, plugin.iDB.getItemName(itemID, dur), Database.Round(price, 2)));
+			
+			
+			
+		}
+		
+	}
+	
 	public boolean playerHasEmptySlot(Player player){
 		
 		PlayerInventory inventory = player.getInventory();
@@ -762,7 +784,7 @@ public class csStats extends JavaPlugin {
 			senderName = player.getDisplayName();
 		}
 		final String message = getFinalArg(args, 0);
-		log.info(chatPrefix + senderName + " " + cmd.getName() + ": " + message.toString());
+		info( senderName + " " + cmd.getName() + ": " + message.toString());
 
 		if (cmd.getName().equalsIgnoreCase("css")) {
 			if (args.length == 0) {
