@@ -553,6 +553,7 @@ public class csStats extends JavaPlugin {
 
 						 notifyOwnerOfPurchase(shop.owner, player, itemID, dur,amountToBuy, price); 
 						
+						 logTransaction(shop.owner, player.getName(), itemID, dur, amountToBuy, price);
 						
 					}
 
@@ -579,6 +580,30 @@ public class csStats extends JavaPlugin {
 		}
 	}
 
+	public void logTransaction(String shopOwner, String shopUser, int itemID, short dur, int amount, double price){
+		Config.mysqlInfo mysqlInfo = plugin.config.getMysqlInfo();
+		
+		String SQL = "INSERT INTO `"+mysqlInfo.table+"` (`id`, `buy`, `shop_owner`, `shop_user`, `item_id`, `item_durability`, `amount`, `price`, `sec`) VALUES "+
+		"(NULL, '1', '%s', '%s', '%s', '%s', '%s', '%s', '%s');";
+		SQL = String.format(SQL, shopOwner, shopUser, itemID, dur, amount, price, getUnixTime());
+	
+		
+		
+		
+		
+		try {
+			Connection con = DriverManager.getConnection(mysqlInfo.URL, mysqlInfo.username, mysqlInfo.password);
+			PreparedStatement statement = con.prepareStatement(SQL);
+			statement.executeUpdate();
+			statement.close();
+			con.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
+	
 	//
 	public void command_confirm(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 
@@ -606,7 +631,7 @@ public class csStats extends JavaPlugin {
 
 		// §7
 		if (args.length == 1) {
-			sender.sendMessage(chatPrefix + "You need to add a itemID/name.");
+			sender.sendMessage(chatPrefix + "/css buy <itemID/Name> [Count]");
 			return;
 		}
 
