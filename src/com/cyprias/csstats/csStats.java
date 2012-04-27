@@ -549,9 +549,9 @@ public class csStats extends JavaPlugin {
 
 						payPlayer(shop.owner, price);
 						
-						sendMessage(player,
-							String.format(boughtItem, plugin.iDB.getItemName(itemID, dur), amountToBuy, price, Database.Round(taxAmount, 2), shop.owner));
 					}
+					sendMessage(player,
+						String.format(boughtItem, plugin.iDB.getItemName(itemID, dur), amountToBuy, price, Database.Round(taxAmount, 2), shop.owner));
 
 					bought += 1;
 					totalPrice += (price + taxAmount);
@@ -567,11 +567,11 @@ public class csStats extends JavaPlugin {
 			sendMessage(player, "§7Unable to locate/afford §f" + plugin.iDB.getItemName(itemID, dur) + "§7.");
 		} else {
 			if (confirmed == false) {
-				sendMessage(player, "§7Attempting §f" + bought + " §7transactions buying §f"+plugin.iDB.getItemName(itemID, dur)+"§7x§f"+totalBuying+" §7valuing $§f" + totalPrice + "§7.");
+				sendMessage(player, "§7Attempting §f" + bought + " §7transactions buying §f"+plugin.iDB.getItemName(itemID, dur)+"§7x§f"+totalBuying+" §7valuing $§f" + Database.Round(totalPrice,2) + "§7.");
 				sendMessage(player, "§7Type §f/css confirm §7to make the purchase.");
 
 			} else {
-				sendMessage(player, "§7Made §f" + bought + " §7transactions valusing $§f" + totalPrice + "§7.");
+				sendMessage(player, "§7Made §f" + bought + " §7transactions valuing $§f" + Database.Round(totalPrice,2) + "§7.");
 			}
 		}
 	}
