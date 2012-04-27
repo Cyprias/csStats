@@ -60,7 +60,7 @@ public class csStats extends JavaPlugin {
 	private String stPluginEnabled = chatPrefix + "§f%s §7v§f%s §7is enabled.";
 	private csStats plugin;
 	public static Economy econ = null;
-	
+
 	public void onEnable() {
 		plugin = this;
 		server = getServer();
@@ -111,10 +111,10 @@ public class csStats extends JavaPlugin {
 		econ = rsp.getProvider();
 		return econ != null;
 	}
-	
+
 	public double getBalance(String pName) {
 		if (setupEconomy()) {
-			return econ.getBalance(pName);
+			return econ.getBalance(pName.toLowerCase());
 		}
 		return 0;
 	}
@@ -125,13 +125,13 @@ public class csStats extends JavaPlugin {
 			// return econ.getBalance(pName);
 			if (!econ.hasAccount(pName))
 				econ.createPlayerAccount(pName);
-			
+
 			econ.depositPlayer(pName.toLowerCase(), amount);
 			return true;
 		}
 		return false;
 	}
-	
+
 	public boolean debtPlayer(String pName, double amount) {
 		pName = pName.toLowerCase();
 		if (setupEconomy()) {
@@ -145,7 +145,7 @@ public class csStats extends JavaPlugin {
 		}
 		return false;
 	}
-	
+
 	public static String encodeEnchantment(Map<Enchantment, Integer> map) {
 		int integer = 0;
 		for (Map.Entry<Enchantment, Integer> entry : map.entrySet()) {
@@ -291,51 +291,26 @@ public class csStats extends JavaPlugin {
 		return iD;
 	}
 
-	public void command_buy(CommandSender sender, Command cmd, String commandLabel, String[] args) {
-		String boughtItem = "§7Bought §f%s §f%s §7for $§f%s§7+§f%s §7from §f%s§7.";
-		//§7
-		if (args.length == 1) {
-			sender.sendMessage(chatPrefix + "You need to add a itemID/name.");
-			return;
-		}
-		
-		
-		Player player;
-		if (sender instanceof Player) {
-			player = (Player) sender;
-		} else {
-			sender.sendMessage("§7You need to be a player to use this command.");
-			return;
+	String boughtItem = "§7Buying §f%s§7x§f%s §7for $§f%s§7+§f%s §7from §f%s§7.";
+
+	public static class buyInfo {
+		public buyInfo(int itemID2, short dur2, int amountWanted2) {
+			itemID = itemID2;
+			dur = dur2;
+			amountWanted = amountWanted2;
 		}
 
-		int itemID = 0;// = player.getItemInHand().getTypeId();
-		short dur = 0;// = player.getItemInHand().getDurability();
-		String itemName = null;// = iDB.getItemName(itemID, dur);
+		int itemID = 0;
+		short dur = 0;
+		int amountWanted = 0;
+	}
 
-		int amountWanted = 1;
+	HashMap<String, buyInfo> lastBuyCommand = new HashMap<String, buyInfo>();
 
-		if (args.length >= 2) {
-			ItemDb.itemData iD = getItemDataFromInput(args[1]);
-			if (iD == null) {
-				sender.sendMessage(chatPrefix + "Cannot find itemID for '" + args[1] + "', Try again.");
-				return;
-			}
-			itemID = iD.itemID;
-			dur = iD.itemDur;
-			itemName = iD.itemName;
-		}
-		if (args.length >= 3) {
-			amountWanted = Integer.parseInt(args[2].toString());
-		}
-		
-		
-		
-		//info("command_buy itemID:" + itemID);
-		//info("command_buy dur:" + dur);
-		//info("command_buy itemName:" + itemName);
-		//info("command_buy amountWanted: " + amountWanted);
-		
-		// ////////////////////////////////////////////////////
+	public void command_buy_run(Player player, int itemID, short dur, int amountWanted, boolean confirmed) {
+
+		lastBuyCommand.put(player.getName(), new buyInfo(itemID, dur, amountWanted));
+
 		Config.mysqlInfo mysqlInfo = plugin.config.getMysqlInfo();
 
 		String world = player.getWorld().getName();
@@ -365,9 +340,9 @@ public class csStats extends JavaPlugin {
 			int chestAmount;
 			Block blockbelow;
 			String owner;
-			
+
 			boolean shopFound = false;
-			
+
 			while (result.next()) {
 				shopFound = true;
 				id = result.getInt(1);
@@ -375,16 +350,14 @@ public class csStats extends JavaPlugin {
 				Y = result.getInt(8);
 				Z = result.getInt(9);
 
-				//plugin.info("id " + id + " " + X + " " + Y + " " + Z);
+				// plugin.info("id " + id + " " + X + " " + Y + " " + Z);
 
 				block = server.getWorlds().get(0).getBlockAt(X, Y, Z);
 
 				Sign sign = (Sign) block.getState();
 
 				int signAmount = Integer.parseInt(sign.getLine(1));
-				
-				
-				
+
 				float buyPrice = uSign.buyPrice(sign.getLine(2)) / signAmount;
 				float sellPrice = uSign.sellPrice(sign.getLine(2)) / signAmount;
 
@@ -416,18 +389,18 @@ public class csStats extends JavaPlugin {
 			statement.close();
 			con.close();
 
-			if (shopFound == false){
-				sendMessage(player, "No shops found containing " + itemName + ".");
-				
+			if (shopFound == false) {
+				sendMessage(player, "No shops found containing " + plugin.iDB.getItemName(itemID, dur) + ".");
+
 				return;
 			}
-			
+
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
-		//Sort cheapest first. 
+		// Sort cheapest first.
 		CompareShopBuyPrice comparator = new CompareShopBuyPrice();
 		Collections.sort(shops, comparator);
 
@@ -435,135 +408,265 @@ public class csStats extends JavaPlugin {
 		ItemStack slot;
 		ItemStack items = new ItemStack(itemID, dur);
 		items.setDurability(dur);
-		
-		
+
 		Inventory inventory;
 		float price;
 		double taxAmount;
-		boolean bought = false;
-		
-		for (int i = 0; i < shops.size() && amountWanted > 0 ; i++) {
-			if (playerHasEmptySlot(player) == false) {
-				sendMessage(player, "You need more empty slots.");
-				break;
-			}
-			
+		int bought = 0;
+		double totalPrice = 0;
+		int amountToBuy;
+
+		double taxPU; // tax per unit.
+		double totalPU; // total per unit.
+
+		int invAmount;
+		int totalBuying = 0;
+
+		double playerBalance = getBalance(player.getName());
+
+		for (int i = 0; i < shops.size() && amountWanted > 0; i++) {
+			// if (playerHasEmptySlot(player) == false) {
+			// sendMessage(player, "You need more empty slots.");
+			// break;
+			// }
+
 			shop = shops.get(i);
-			//plugin.info("A " + i + ": " + shop.buyPrice + " > " + shop.amount);
-			
-			
-			
+
 			inventory = shop.chest.getInventory();
-			
-			for (int s = 0; s < inventory.getSize() && amountWanted > 0; s++) {
-				if (playerHasEmptySlot(player) == false) {
-					break;
-				}
-				
-				
-				slot = inventory.getItem(s);
 
+			/*
+			 * for (int s = 0; s < inventory.getSize() && amountWanted > 0; s++)
+			 * { if (playerHasEmptySlot(player) == false) { break; }
+			 * 
+			 * 
+			 * slot = inventory.getItem(s);
+			 * 
+			 * 
+			 * 
+			 * 
+			 * 
+			 * if (slot != null) {
+			 * 
+			 * if (slot.getTypeId() == itemID && slot.getDurability() == dur) {
+			 * 
+			 * if (slot.getAmount() > amountWanted) {
+			 * slot.setAmount(slot.getAmount() - amountWanted);
+			 * 
+			 * price = (shop.buyPrice * amountWanted); taxAmount = price *
+			 * Config.convenienceTax;
+			 * 
+			 * if (getBalance(player.getName()) > (price+taxAmount)){ bought +=
+			 * 1; totalPrice += (price+taxAmount);
+			 * 
+			 * amountWanted = 0;
+			 * 
+			 * if (confirmed == true){ sendMessage(player,
+			 * String.format(boughtItem, amountWanted,
+			 * plugin.iDB.getItemName(itemID, dur), price,
+			 * Database.Round(taxAmount,2), shop.owner));
+			 * uInventory.add(player.getInventory(), items, amountWanted);
+			 * 
+			 * 
+			 * 
+			 * notifyOwnerOfPurchase(shop.owner, player, itemID, dur,
+			 * amountWanted, price); debtPlayer(player.getName(),
+			 * (price+taxAmount)); payPlayer(shop.owner, price); }
+			 * 
+			 * 
+			 * } break; } price = (shop.buyPrice * slot.getAmount()); taxAmount
+			 * = price * Config.convenienceTax;
+			 * 
+			 * //info(player.getName() + " balance: " +
+			 * getBalance(player.getName())); if (getBalance(player.getName()) >
+			 * (price+taxAmount)){ bought += 1; totalPrice += (price+taxAmount);
+			 * 
+			 * 
+			 * if (confirmed == true){ sendMessage(player,
+			 * String.format(boughtItem, slot.getAmount(),
+			 * plugin.iDB.getItemName(itemID, dur), price,
+			 * Database.Round(taxAmount,2), shop.owner));
+			 * debtPlayer(player.getName(), price+taxAmount);
+			 * payPlayer(shop.owner, price);
+			 * uInventory.add(player.getInventory(), items, slot.getAmount());
+			 * notifyOwnerOfPurchase(shop.owner, player, itemID, dur,
+			 * slot.getAmount(), price); inventory.removeItem(slot); }
+			 * amountWanted -= slot.getAmount();
+			 * 
+			 * }
+			 * 
+			 * 
+			 * }
+			 * 
+			 * }
+			 * 
+			 * }
+			 */
 
-				 
-					
-				
-				if (slot != null) {
-					//info ("B i: " + i + ", s: " + s + " slot: " + slot);
-					
-					if (slot.getTypeId() == itemID && slot.getDurability() == dur) {
-						//info ("C i: " + i + ", s: " + s + " slot: " + slot + " , amountWanted: " + amountWanted);
-						
-						
-						if (slot.getAmount() > amountWanted) {
-							slot.setAmount(slot.getAmount() - amountWanted);
+			invAmount = uInventory.amount(inventory, items, dur);
+			// sendMessage(player, "Chest invAmount: " + invAmount);
 
-							price = (shop.buyPrice * amountWanted);
-							taxAmount = price * Config.convenienceTax;
-							
-							//info(player.getName() + " balance: " + getBalance(player.getName()));
-							
-							if (getBalance(player.getName()) > (price+taxAmount)){
-								sendMessage(player, String.format(boughtItem, amountWanted, plugin.iDB.getItemName(itemID, dur), price, Database.Round(taxAmount,2), shop.owner));
-								uInventory.add(player.getInventory(), items, amountWanted);
-								
-								
-								
-								notifyOwnerOfPurchase(shop.owner, player, itemID, dur, amountWanted, price);
-								
-								amountWanted = 0;
-								
-								
-								
-								
-								
-								debtPlayer(player.getName(), (price+taxAmount));
-								payPlayer(shop.owner, price);
-								bought = true;
-								
-								
-								
-								
-							}
-							break;
-						}
-						price = (shop.buyPrice * slot.getAmount());
-						taxAmount = price * Config.convenienceTax;
-						
-						//info(player.getName() + " balance: " + getBalance(player.getName()));
-						if (getBalance(player.getName()) > (price+taxAmount)){
-						
-							debtPlayer(player.getName(), price+taxAmount);
-							payPlayer(shop.owner, price);
-							
-							
-							sendMessage(player, String.format(boughtItem, slot.getAmount(), plugin.iDB.getItemName(itemID, dur), price, Database.Round(taxAmount,2), shop.owner));
-							uInventory.add(player.getInventory(), items, slot.getAmount());
-							
-							notifyOwnerOfPurchase(shop.owner, player, itemID, dur, slot.getAmount(), price);
-							amountWanted -= slot.getAmount();
-							inventory.removeItem(slot);
-							bought= true;
-							
-							
-						}
-						
+			if (invAmount > 0) {
+				totalPU = (shop.buyPrice * (1 + Config.convenienceTax));
 
+				// sendMessage(player, "Price per unit: " + shop.buyPrice);
+				// sendMessage(player, "Tax per unit: " + taxPU);
+				// sendMessage(player, "Total per unit: " + totalPU);
+
+				amountToBuy = (int) (playerBalance / totalPU); // How many we
+																// can afford.
+				// sendMessage(player, "amountCanAfford: " + amountToBuy);
+				amountToBuy = Math.min(amountToBuy, invAmount); // Max amount
+																// available.
+				// sendMessage(player, "max amount available: " + amountToBuy);
+				amountToBuy = Math.min(amountToBuy, amountWanted); // Max amount
+																	// wanted.
+				// sendMessage(player, "max amount wanted: " + amountToBuy);
+
+				amountToBuy = Math.min(amountToBuy, amountToBuy - uInventory.fits(player.getInventory(), items, amountToBuy, dur)); // Max
+																																	// amount
+																																	// able
+																																	// to
+																																	// fit.
+				// sendMessage(player, "max amount can fit: " + amountToBuy);
+
+				// sendMessage(player, "amountToBuy2: " + amountToBuy);
+
+				if (amountToBuy > 0) {
+					price = (shop.buyPrice * amountToBuy);
+					taxAmount = price * Config.convenienceTax;
+					playerBalance -= (price + taxAmount);
+					totalBuying += amountToBuy;
+
+					if (confirmed == true) {
+
+						// sendMessage(player, "Removing " + amountToBuy +
+						// " from " + shop.owner + "'s " + invAmount);
+
+						uInventory.remove(inventory, items, amountToBuy, dur);
+						uInventory.add(player.getInventory(), items, amountToBuy);
+
+						debtPlayer(player.getName(), price + taxAmount);
+
+						payPlayer(shop.owner, price);
+						
+						sendMessage(player,
+							String.format(boughtItem, plugin.iDB.getItemName(itemID, dur), amountToBuy, price, Database.Round(taxAmount, 2), shop.owner));
 					}
 
+					bought += 1;
+					totalPrice += (price + taxAmount);
+					amountWanted -= amountToBuy;
 				}
 
 			}
+
 		}
-		if (bought == false){
-			sendMessage(player, "No " + itemID + " in your price range.");
+
+		/**/
+		if (bought == 0) {
+			sendMessage(player, "§7Unable to locate/afford §f" + plugin.iDB.getItemName(itemID, dur) + "§7.");
+		} else {
+			if (confirmed == false) {
+				sendMessage(player, "§7Attempting §f" + bought + " §7transactions buying §f"+plugin.iDB.getItemName(itemID, dur)+"§7x§f"+totalBuying+" §7valuing $§f" + totalPrice + "§7.");
+				sendMessage(player, "§7Type §f/css confirm §7to make the purchase.");
+
+			} else {
+				sendMessage(player, "§7Made §f" + bought + " §7transactions valusing $§f" + totalPrice + "§7.");
+			}
 		}
-		
 	}
 
-	public void notifyOwnerOfPurchase(String ownerName, Player user, int itemID, int dur, int Amount, double price){
-		Player owner = 	server.getPlayer(ownerName);
-		
-		if (owner != null){
+	//
+	public void command_confirm(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+
+		if (!lastBuyCommand.containsKey(sender.getName())) {
+			plugin.sendMessage(sender, "Can't find your previous command to confirm, try again.");
+			return;
+		}
+
+		Player player;
+		if (sender instanceof Player) {
+			player = (Player) sender;
+		} else {
+			sender.sendMessage("§7You need to be a player to use this command.");
+			return;
+		}
+
+		command_buy_run(player, lastBuyCommand.get(sender.getName()).itemID, lastBuyCommand.get(sender.getName()).dur,
+			lastBuyCommand.get(sender.getName()).amountWanted, true);
+
+		lastBuyCommand.remove(sender.getName());
+
+	}
+
+	public void command_buy(CommandSender sender, Command cmd, String commandLabel, String[] args) {
+
+		// §7
+		if (args.length == 1) {
+			sender.sendMessage(chatPrefix + "You need to add a itemID/name.");
+			return;
+		}
+
+		Player player;
+		if (sender instanceof Player) {
+			player = (Player) sender;
+		} else {
+			sender.sendMessage("§7You need to be a player to use this command.");
+			return;
+		}
+
+		int itemID = 0;// = player.getItemInHand().getTypeId();
+		short dur = 0;// = player.getItemInHand().getDurability();
+		String itemName = null;// = iDB.getItemName(itemID, dur);
+
+		int amountWanted = 1;
+
+		if (args.length >= 2) {
+			ItemDb.itemData iD = getItemDataFromInput(args[1]);
+			if (iD == null) {
+				sender.sendMessage(chatPrefix + "Cannot find itemID for '" + args[1] + "', Try again.");
+				return;
+			}
+			itemID = iD.itemID;
+			dur = iD.itemDur;
+			itemName = iD.itemName;
+		}
+		if (args.length >= 3) {
+			amountWanted = Integer.parseInt(args[2].toString());
+		}
+
+		// info("command_buy itemID:" + itemID);
+		// info("command_buy dur:" + dur);
+		// info("command_buy itemName:" + itemName);
+		// info("command_buy amountWanted: " + amountWanted);
+
+		// ////////////////////////////////////////////////////
+
+		command_buy_run(player, itemID, dur, amountWanted, false);
+	}
+
+	public void notifyOwnerOfPurchase(String ownerName, Player user, int itemID, int dur, int Amount, double price) {
+		Player owner = server.getPlayer(ownerName);
+
+		if (owner != null) {
 			String notifyBuy = "§f%s §7bought §f%s %s§7 §7($§f%s§7) §7from you.";
 			plugin.sendMessage(owner, String.format(notifyBuy, user.getDisplayName(), Amount, plugin.iDB.getItemName(itemID, dur), Database.Round(price, 2)));
-			
-			
-			
+
 		}
-		
+
 	}
-	
-	public boolean playerHasEmptySlot(Player player){
-		
+
+	public boolean playerHasEmptySlot(Player player) {
+
 		PlayerInventory inventory = player.getInventory();
-		
+
 		for (int s = 0; s < inventory.getSize(); s++) {
 			if (inventory.getItem(s) == null)
 				return true;
 		}
 		return false;
 	}
-	
+
 	public class CompareShopBuyPrice implements Comparator<signShop> {
 
 		@Override
@@ -784,7 +887,7 @@ public class csStats extends JavaPlugin {
 			senderName = player.getDisplayName();
 		}
 		final String message = getFinalArg(args, 0);
-		info( senderName + " " + cmd.getName() + ": " + message.toString());
+		info(senderName + " " + cmd.getName() + ": " + message.toString());
 
 		if (cmd.getName().equalsIgnoreCase("css")) {
 			if (args.length == 0) {
@@ -795,6 +898,7 @@ public class csStats extends JavaPlugin {
 				sender.sendMessage(chatPrefix + "/css sellers [itemID] - Who sells the item in your hand.");
 				sender.sendMessage(chatPrefix + "/css buyers [itemID] - Who buys the item in your hand.");
 				sender.sendMessage(chatPrefix + "/css seller <player> - Public warps for that player.");
+				sender.sendMessage(chatPrefix + "/css buy [itemID] <count> - Buy that item from the cheapest shop available.");
 
 				if (hasPermission(sender, "css.admin"))
 					sender.sendMessage(chatPrefix + "/css admin");
@@ -849,6 +953,11 @@ public class csStats extends JavaPlugin {
 				command_buy(sender, cmd, commandLabel, args);
 				return true;
 
+			} else if (args[0].equalsIgnoreCase("confirm")) {
+				command_confirm(sender, cmd, commandLabel, args);
+				return true;
+
+				//
 			} else if (args[0].equalsIgnoreCase("stats")) {
 
 				int itemID = player.getItemInHand().getTypeId();
