@@ -294,9 +294,12 @@ public class csStats extends JavaPlugin {
 	}
 
 	public void command_buy(CommandSender sender, Command cmd, String commandLabel, String[] args) {
-		String boughtItem = "§7Bought §f%s §f%s §7for $§f%s§7+§f%s §7from §f%s§7.";
+		String boughtItem = "§7Bought §f%s §f%s:%s §7for $§f%s§7+§f%s §7from §f%s§7.";
 		//§7
-		
+		if (args.length == 1) {
+			sender.sendMessage(chatPrefix + "You need to add a itemID/name.");
+			return;
+		}
 		
 		
 		Player player;
@@ -307,9 +310,9 @@ public class csStats extends JavaPlugin {
 			return;
 		}
 
-		int itemID = player.getItemInHand().getTypeId();
-		short dur = player.getItemInHand().getDurability();
-		String itemName = iDB.getItemName(itemID, dur);
+		int itemID = 0;// = player.getItemInHand().getTypeId();
+		short dur = 0;// = player.getItemInHand().getDurability();
+		String itemName = null;// = iDB.getItemName(itemID, dur);
 
 		int amountWanted = 1;
 
@@ -374,7 +377,7 @@ public class csStats extends JavaPlugin {
 				Y = result.getInt(8);
 				Z = result.getInt(9);
 
-				plugin.info("id " + id + " " + X + " " + Y + " " + Z);
+				//plugin.info("id " + id + " " + X + " " + Y + " " + Z);
 
 				block = server.getWorlds().get(0).getBlockAt(X, Y, Z);
 
@@ -433,7 +436,8 @@ public class csStats extends JavaPlugin {
 		signShop shop;
 		ItemStack slot;
 		ItemStack items = new ItemStack(itemID, dur);
-
+		items.setDurability(dur);
+		
 		
 		Inventory inventory;
 		float price;
@@ -469,7 +473,7 @@ public class csStats extends JavaPlugin {
 					//info ("B i: " + i + ", s: " + s + " slot: " + slot);
 					
 					if (slot.getTypeId() == itemID && slot.getDurability() == dur) {
-						info ("C i: " + i + ", s: " + s + " slot: " + slot + " , amountWanted: " + amountWanted);
+						//info ("C i: " + i + ", s: " + s + " slot: " + slot + " , amountWanted: " + amountWanted);
 						
 						
 						if (slot.getAmount() > amountWanted) {
@@ -481,7 +485,7 @@ public class csStats extends JavaPlugin {
 							info(player.getName() + " balance: " + getBalance(player.getName()));
 							
 							if (getBalance(player.getName()) > (price+taxAmount)){
-									sendMessage(player, String.format(boughtItem, amountWanted, itemID, price, taxAmount, shop.owner));
+								sendMessage(player, String.format(boughtItem, amountWanted, itemID, dur, price, Database.Round(taxAmount,2), shop.owner));
 								uInventory.add(player.getInventory(), items, amountWanted);
 								
 								
@@ -489,7 +493,7 @@ public class csStats extends JavaPlugin {
 								
 								amountWanted = 0;
 								
-								debtPlayer(player.getName(), price*Config.convenienceTax);
+								debtPlayer(player.getName(), price+Config.convenienceTax);
 								payPlayer(shop.owner, price);
 								bought = true;
 							}
@@ -505,7 +509,7 @@ public class csStats extends JavaPlugin {
 							payPlayer(shop.owner, price);
 							
 							
-							sendMessage(player, String.format(boughtItem, slot.getAmount(), itemID, price, taxAmount, shop.owner));
+							sendMessage(player, String.format(boughtItem, slot.getAmount(), itemID, dur, price, Database.Round(taxAmount,2), shop.owner));
 							uInventory.add(player.getInventory(), items, slot.getAmount());
 							
 							

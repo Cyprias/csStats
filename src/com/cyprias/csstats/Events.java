@@ -220,7 +220,7 @@ public class Events implements Listener {
 
 		int isInDB = isShopInDB(loc.getWorld().getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
 		
-		plugin.log.info("isShopInDB: " + isInDB);
+		//plugin.log.info("isShopInDB: " + isInDB);
 		
 		if (isInDB > 0){
 			SQL = "UPDATE `%s` SET " + 
