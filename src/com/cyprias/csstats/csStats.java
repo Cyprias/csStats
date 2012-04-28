@@ -354,33 +354,36 @@ public class csStats extends JavaPlugin {
 
 				block = server.getWorlds().get(0).getBlockAt(X, Y, Z);
 
-				Sign sign = (Sign) block.getState();
-
-				int signAmount = Integer.parseInt(sign.getLine(1));
-
-				float buyPrice = uSign.buyPrice(sign.getLine(2)) / signAmount;
-				float sellPrice = uSign.sellPrice(sign.getLine(2)) / signAmount;
-
-				if (buyPrice > 0) {
-
-					// plugin.info("buyPrice: " + buyPrice);
-					// plugin.info("sellPrice: " + sellPrice);
-					blockbelow = block.getRelative(0, -1, 0);
-					owner = sign.getLine(0);
-
-					if ((blockbelow.getState() instanceof Chest)) {
-
-						chest = (Chest) blockbelow.getState();
-						chestAmount = chestContainsItem(chest, itemID, dur);
-
-						if (chestAmount > 0) {
-							// plugin.info("Chest has item!");
-
-							shops.add(shops.size(), new signShop(world, X, Y, Z, itemID, dur, chestAmount, buyPrice, sellPrice, owner, chest));
-							//
-
+				if ((block.getState() instanceof Sign)) {
+				
+					Sign sign = (Sign) block.getState();
+	
+					int signAmount = Integer.parseInt(sign.getLine(1));
+	
+					float buyPrice = uSign.buyPrice(sign.getLine(2)) / signAmount;
+					float sellPrice = uSign.sellPrice(sign.getLine(2)) / signAmount;
+	
+					if (buyPrice > 0) {
+	
+						// plugin.info("buyPrice: " + buyPrice);
+						// plugin.info("sellPrice: " + sellPrice);
+						blockbelow = block.getRelative(0, -1, 0);
+						owner = sign.getLine(0);
+	
+						if ((blockbelow.getState() instanceof Chest)) {
+	
+							chest = (Chest) blockbelow.getState();
+							chestAmount = chestContainsItem(chest, itemID, dur);
+	
+							if (chestAmount > 0) {
+								// plugin.info("Chest has item!");
+	
+								shops.add(shops.size(), new signShop(world, X, Y, Z, itemID, dur, chestAmount, buyPrice, sellPrice, owner, chest));
+								//
+	
+							}
+	
 						}
-
 					}
 				}
 

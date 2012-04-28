@@ -100,6 +100,31 @@ public class Events implements Listener {
 		if (plugin.hasPermission(player, "mcego.shop.register"))
 			plugin.sendMessage(player, "§7Rightclick the shop sign to register it with ChestShopStats.");
 		
+		
+		
+		Location loc = block.getLocation();
+		int isInDB = isShopInDB(loc.getWorld().getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+		
+		if (isInDB > 0){
+		
+			Sign sign = (Sign) block.getState(); // exiting due to the sign being
+			
+			String owner, amount, signMat; 
+			
+			signMat = sign.getLine(3);
+			owner = sign.getLine(0);
+			amount = sign.getLine(1);
+	
+	
+			ItemStack stack = Items.getItemStack(signMat);
+			
+			plugin.info("onSignChangeEvent signMat: " + signMat);
+			plugin.info("onSignChangeEvent owner: " + owner);
+			plugin.info("onSignChangeEvent amount: " + amount);
+			plugin.info("onSignChangeEvent getTypeId: " + stack.getTypeId());
+			
+		}
+		
 	}
 	
 	public void checkForSign(Block block, Player player){
