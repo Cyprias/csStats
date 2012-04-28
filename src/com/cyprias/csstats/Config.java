@@ -22,6 +22,7 @@ public class Config extends JavaPlugin {
 	
 	
 	public static double convenienceTax;
+	public static boolean logTransactions;
 	
 	public Config(csStats plugin) {
 		this.plugin = plugin;
@@ -32,6 +33,7 @@ public class Config extends JavaPlugin {
 		plugin.saveConfig();
 		
 		convenienceTax = config.getDouble("convenienceTax");
+		logTransactions = config.getBoolean("logTransactions");
 		
 	}
 

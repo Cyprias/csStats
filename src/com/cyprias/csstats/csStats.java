@@ -581,25 +581,61 @@ public class csStats extends JavaPlugin {
 	}
 
 	public void logTransaction(String shopOwner, String shopUser, int itemID, short dur, int amount, double price){
-		Config.mysqlInfo mysqlInfo = plugin.config.getMysqlInfo();
 		
-		String SQL = "INSERT INTO `"+mysqlInfo.table+"` (`id`, `buy`, `shop_owner`, `shop_user`, `item_id`, `item_durability`, `amount`, `price`, `sec`) VALUES "+
-		"(NULL, '1', '%s', '%s', '%s', '%s', '%s', '%s', '%s');";
-		SQL = String.format(SQL, shopOwner, shopUser, itemID, dur, amount, price, getUnixTime());
-	
+		double pricePerUnit = price / amount;
 		
+		if (config.logTransactions == true) {
 		
+			Config.mysqlInfo mysqlInfo = plugin.config.getMysqlInfo();
+			
+			String SQL = "INSERT INTO `"+mysqlInfo.table+"` (`id`, `buy`, `shop_owner`, `shop_user`, `item_id`, `item_durability`, `amount`, `price`, `sec`) VALUES "+
+			"(NULL, '1', '%s', '%s', '%s', '%s', '%s', '%s', '%s');";
 		
-		
-		try {
-			Connection con = DriverManager.getConnection(mysqlInfo.URL, mysqlInfo.username, mysqlInfo.password);
-			PreparedStatement statement = con.prepareStatement(SQL);
-			statement.executeUpdate();
-			statement.close();
-			con.close();
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			
+			Connection con = null;
+			PreparedStatement statement = null;
+			try {
+				con = DriverManager.getConnection(mysqlInfo.URL, mysqlInfo.username, mysqlInfo.password);
+			} catch (SQLException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			
+			
+			int tAmount = 0;
+			
+			while (amount > 0) {
+				if (amount > 64){
+					tAmount = 64;
+					amount -= 64;
+				}else{
+					tAmount = amount;
+					amount = 0;
+				}
+					
+				try {
+					
+					statement = con.prepareStatement(String.format(SQL, shopOwner, shopUser, itemID, dur, tAmount, pricePerUnit*tAmount, getUnixTime()));
+					statement.executeUpdate();
+					
+					
+				} catch (SQLException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+				
+			}
+			
+			
+			try {
+				statement.close();
+				con.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
 		}
 		
 	}
