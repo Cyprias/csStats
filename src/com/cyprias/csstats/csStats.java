@@ -352,8 +352,10 @@ public class csStats extends JavaPlugin {
 
 				// plugin.info("id " + id + " " + X + " " + Y + " " + Z);
 
-				block = server.getWorlds().get(0).getBlockAt(X, Y, Z);
+				block = server.getWorld(world).getBlockAt(X, Y, Z);
 
+				
+				
 				if ((block.getState() instanceof Sign)) {
 				
 					Sign sign = (Sign) block.getState();
@@ -427,6 +429,8 @@ public class csStats extends JavaPlugin {
 
 		double playerBalance = getBalance(player.getName());
 
+		
+		
 		for (int i = 0; i < shops.size() && amountWanted > 0; i++) {
 			// if (playerHasEmptySlot(player) == false) {
 			// sendMessage(player, "You need more empty slots.");
@@ -436,74 +440,6 @@ public class csStats extends JavaPlugin {
 			shop = shops.get(i);
 
 			inventory = shop.chest.getInventory();
-
-			/*
-			 * for (int s = 0; s < inventory.getSize() && amountWanted > 0; s++)
-			 * { if (playerHasEmptySlot(player) == false) { break; }
-			 * 
-			 * 
-			 * slot = inventory.getItem(s);
-			 * 
-			 * 
-			 * 
-			 * 
-			 * 
-			 * if (slot != null) {
-			 * 
-			 * if (slot.getTypeId() == itemID && slot.getDurability() == dur) {
-			 * 
-			 * if (slot.getAmount() > amountWanted) {
-			 * slot.setAmount(slot.getAmount() - amountWanted);
-			 * 
-			 * price = (shop.buyPrice * amountWanted); taxAmount = price *
-			 * Config.convenienceTax;
-			 * 
-			 * if (getBalance(player.getName()) > (price+taxAmount)){ bought +=
-			 * 1; totalPrice += (price+taxAmount);
-			 * 
-			 * amountWanted = 0;
-			 * 
-			 * if (confirmed == true){ sendMessage(player,
-			 * String.format(boughtItem, amountWanted,
-			 * plugin.iDB.getItemName(itemID, dur), price,
-			 * Database.Round(taxAmount,2), shop.owner));
-			 * uInventory.add(player.getInventory(), items, amountWanted);
-			 * 
-			 * 
-			 * 
-			 * notifyOwnerOfPurchase(shop.owner, player, itemID, dur,
-			 * amountWanted, price); debtPlayer(player.getName(),
-			 * (price+taxAmount)); payPlayer(shop.owner, price); }
-			 * 
-			 * 
-			 * } break; } price = (shop.buyPrice * slot.getAmount()); taxAmount
-			 * = price * Config.convenienceTax;
-			 * 
-			 * //info(player.getName() + " balance: " +
-			 * getBalance(player.getName())); if (getBalance(player.getName()) >
-			 * (price+taxAmount)){ bought += 1; totalPrice += (price+taxAmount);
-			 * 
-			 * 
-			 * if (confirmed == true){ sendMessage(player,
-			 * String.format(boughtItem, slot.getAmount(),
-			 * plugin.iDB.getItemName(itemID, dur), price,
-			 * Database.Round(taxAmount,2), shop.owner));
-			 * debtPlayer(player.getName(), price+taxAmount);
-			 * payPlayer(shop.owner, price);
-			 * uInventory.add(player.getInventory(), items, slot.getAmount());
-			 * notifyOwnerOfPurchase(shop.owner, player, itemID, dur,
-			 * slot.getAmount(), price); inventory.removeItem(slot); }
-			 * amountWanted -= slot.getAmount();
-			 * 
-			 * }
-			 * 
-			 * 
-			 * }
-			 * 
-			 * }
-			 * 
-			 * }
-			 */
 
 			invAmount = uInventory.amount(inventory, items, dur);
 			// sendMessage(player, "Chest invAmount: " + invAmount);
@@ -574,7 +510,7 @@ public class csStats extends JavaPlugin {
 			sendMessage(player, "§7Unable to locate/afford §f" + plugin.iDB.getItemName(itemID, dur) + "§7.");
 		} else {
 			if (confirmed == false) {
-				sendMessage(player, "§7Buying §f"+plugin.iDB.getItemName(itemID, dur)+"§7x§f"+totalBuying+" §7valuing $§f" + Database.Round(totalPrice,2) + "§7.");
+				sendMessage(player, "§7Found §f"+plugin.iDB.getItemName(itemID, dur)+"§7x§f"+totalBuying+" §7valuing $§f" + Database.Round(totalPrice,2) + "§7.");
 				sendMessage(player, "§7Type §f/css confirm §7to make the purchase.");
 
 			} else {
@@ -920,29 +856,37 @@ public class csStats extends JavaPlugin {
 	public ArrayList<cmdRequest> queuedCommands = new ArrayList<cmdRequest>();
 
 	public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
-		cmdRequest newCmd = new cmdRequest();
-		newCmd.sender = sender;
-		newCmd.cmd = cmd;
-		newCmd.commandLabel = commandLabel;
-		newCmd.args = args;
-
-		queuedCommands.add(newCmd);
-
-		this.getServer().getScheduler().scheduleAsyncDelayedTask(this, new Runnable() {
-			public void run() {
-
-				for (int i = queuedCommands.size() - 1; i >= 0; i--) {
-					try {
-						commandHandler(queuedCommands.get(i).sender, queuedCommands.get(i).cmd, queuedCommands.get(i).commandLabel, queuedCommands.get(i).args);
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+		
+		if (args.length > 0 && (args[0].equalsIgnoreCase("buy") || args[0].equalsIgnoreCase("confirm"))){
+			// There's issues with grabbing blocks from async threads, I need to find a way around it that won't lockup the server when it searches. 
+			commandHandler(sender, cmd, commandLabel, args);
+			return true;
+		}else{
+		
+			cmdRequest newCmd = new cmdRequest();
+			newCmd.sender = sender;
+			newCmd.cmd = cmd;
+			newCmd.commandLabel = commandLabel;
+			newCmd.args = args;
+	
+			queuedCommands.add(newCmd);
+	
+			this.getServer().getScheduler().scheduleAsyncDelayedTask(this, new Runnable() {
+				public void run() {
+	
+					for (int i = queuedCommands.size() - 1; i >= 0; i--) {
+						try {
+							commandHandler(queuedCommands.get(i).sender, queuedCommands.get(i).cmd, queuedCommands.get(i).commandLabel, queuedCommands.get(i).args);
+						} catch (Exception e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						queuedCommands.remove(i);
 					}
-					queuedCommands.remove(i);
 				}
-			}
-		}, 0L);
-		return true;
+			}, 0L);
+			return true;
+		}
 	}
 
 	/**/
