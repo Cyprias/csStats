@@ -125,8 +125,11 @@ public class csStats extends JavaPlugin {
 			// return econ.getBalance(pName);
 			if (!econ.hasAccount(pName))
 				econ.createPlayerAccount(pName);
-
+			double balance = econ.getBalance(pName);
 			econ.depositPlayer(pName.toLowerCase(), amount);
+			plugin.info("§aCrediting §f" + pName + "'s account. " + Database.Round(balance,2) + "+§a" + Database.Round(amount,2) + "§f=" + Database.Round(econ.getBalance(pName),2));
+			
+			
 			return true;
 		}
 		return false;
@@ -138,9 +141,13 @@ public class csStats extends JavaPlugin {
 
 			if (!econ.hasAccount(pName))
 				econ.createPlayerAccount(pName);
-
+			
+			double balance = econ.getBalance(pName);
+			
 			econ.withdrawPlayer(pName, amount);
 
+			plugin.info("§cDebting §f" + pName + "'s account. " + Database.Round(balance,2) + "-§c" + Database.Round(amount,2) + "§f=" + Database.Round(econ.getBalance(pName),2));
+			
 			return true;
 		}
 		return false;
@@ -291,8 +298,9 @@ public class csStats extends JavaPlugin {
 		return iD;
 	}
 
-	String boughtItem = "§7Buying §f%s§7x§f%s §7for $§f%s§7+§f%s §7from §f%s§7.";
-
+	//String boughtItem = "§7Buying §f%s§7x§f%s §7for $§f%s §7from §f%s§7.";
+	String boughtItem = "§7Buying §f%s§7x§f%s §7for $§f%s§7 ($§f%s§7/unit).";//" §7from §f%s§7.";
+	
 	public static class buyInfo {
 		public buyInfo(int itemID2, short dur2, int amountWanted2) {
 			itemID = itemID2;
@@ -316,7 +324,13 @@ public class csStats extends JavaPlugin {
 		String world = player.getWorld().getName();
 
 		String SQL = "SELECT * FROM `" + plugin.database.shopTable
-			+ "` WHERE `TypeId` = ? AND `Durability` = ? AND `world` = ? AND `enchantments` = 0 ORDER BY unixtime DESC LIMIT 100";
+			+ "` WHERE `TypeId` = ? "+
+			"AND `Durability` = ? "+
+			"AND `world` = ? "+
+			"AND `enchantments` = 0 "+
+			"AND `owner` != ? "+
+			"ORDER BY unixtime "+
+			"DESC LIMIT 100";
 		// SQL = String.format(SQL, plugin.database.shopTable, itemID, dur);
 
 		// info("command_buy SQL:" + SQL);
@@ -332,7 +346,8 @@ public class csStats extends JavaPlugin {
 			statement.setInt(1, itemID);
 			statement.setInt(2, dur);
 			statement.setString(3, world);
-
+			statement.setString(4, player.getName());
+			
 			ResultSet result = statement.executeQuery();
 
 			int id, X, Y, Z;
@@ -342,14 +357,19 @@ public class csStats extends JavaPlugin {
 			String owner;
 
 			boolean shopFound = false;
-
+			Sign sign;
+			int signAmount;
+			float buyPrice;
+			float sellPrice;
 			while (result.next()) {
 				shopFound = true;
 				id = result.getInt(1);
+				owner = result.getString(2);
 				X = result.getInt(7);
 				Y = result.getInt(8);
 				Z = result.getInt(9);
-
+				
+				
 				// plugin.info("id " + id + " " + X + " " + Y + " " + Z);
 
 				block = server.getWorld(world).getBlockAt(X, Y, Z);
@@ -358,20 +378,22 @@ public class csStats extends JavaPlugin {
 				
 				if ((block.getState() instanceof Sign)) {
 				
-					Sign sign = (Sign) block.getState();
+					sign = (Sign) block.getState();
 	
-					int signAmount = Integer.parseInt(sign.getLine(1));
+					signAmount = Integer.parseInt(sign.getLine(1));
 	
-					float buyPrice = uSign.buyPrice(sign.getLine(2)) / signAmount;
-					float sellPrice = uSign.sellPrice(sign.getLine(2)) / signAmount;
+					buyPrice = uSign.buyPrice(sign.getLine(2)) / signAmount;
+					sellPrice = uSign.sellPrice(sign.getLine(2)) / signAmount;
 	
 					if (buyPrice > 0) {
 	
 						// plugin.info("buyPrice: " + buyPrice);
 						// plugin.info("sellPrice: " + sellPrice);
 						blockbelow = block.getRelative(0, -1, 0);
-						owner = sign.getLine(0);
-	
+						//owner = sign.getLine(0);
+						
+						
+						
 						if ((blockbelow.getState() instanceof Chest)) {
 	
 							chest = (Chest) blockbelow.getState();
@@ -395,7 +417,7 @@ public class csStats extends JavaPlugin {
 			con.close();
 
 			if (shopFound == false) {
-				sendMessage(player, "No shops found containing " + plugin.iDB.getItemName(itemID, dur) + ".");
+				sendMessage(player, "§7No shops found containing §f" + plugin.iDB.getItemName(itemID, dur) + "§7.");
 
 				return;
 			}
@@ -419,6 +441,7 @@ public class csStats extends JavaPlugin {
 		double taxAmount;
 		int bought = 0;
 		double totalPrice = 0;
+		double totalTax = 0;
 		int amountToBuy;
 
 		double taxPU; // tax per unit.
@@ -485,10 +508,10 @@ public class csStats extends JavaPlugin {
 						uInventory.add(player.getInventory(), items, amountToBuy);
 
 						debtPlayer(player.getName(), price + taxAmount);
-
 						payPlayer(shop.owner, price);
+						
 						sendMessage(player,
-							String.format(boughtItem, plugin.iDB.getItemName(itemID, dur), amountToBuy, price, Database.Round(taxAmount, 2), shop.owner));
+							String.format(boughtItem, plugin.iDB.getItemName(itemID, dur), amountToBuy, Database.Round(price,2), Database.Round(price/amountToBuy,2)));
 
 						 notifyOwnerOfPurchase(shop.owner, player, itemID, dur,amountToBuy, price); 
 						
@@ -497,7 +520,8 @@ public class csStats extends JavaPlugin {
 					}
 
 					bought += 1;
-					totalPrice += (price + taxAmount);
+					totalPrice += price;
+					totalTax += taxAmount;
 					amountWanted -= amountToBuy;
 				}
 
@@ -509,22 +533,22 @@ public class csStats extends JavaPlugin {
 		if (bought == 0) {
 			sendMessage(player, "§7Unable to locate/afford §f" + plugin.iDB.getItemName(itemID, dur) + "§7.");
 		} else {
+			double pPerUnit = Database.Round((totalPrice+totalTax)/totalBuying, 3);
+			
+			
 			if (confirmed == false) {
-				sendMessage(player, "§7Found §f"+plugin.iDB.getItemName(itemID, dur)+"§7x§f"+totalBuying+" §7valuing $§f" + Database.Round(totalPrice,2) + "§7.");
-				sendMessage(player, "§7Type §f/css confirm §7to make the purchase.");
-
+				sendMessage(player, "§7Found §f"+plugin.iDB.getItemName(itemID, dur)+"§7x§f"+totalBuying+" §7costing $§f" + Database.Round(totalPrice+totalTax,2) +"§7. ($§f" + pPerUnit+"§7/unit)");
+				sendMessage(player, "§7Type §a/css confirm §7to make the purchase.");
 			} else {
-				sendMessage(player, "§7Made §f" + bought + " §7transactions valuing $§f" + Database.Round(totalPrice,2) + "§7.");
+				//sendMessage(player, "§7 §f"+plugin.iDB.getItemName(itemID, dur)+"§7x§f"+totalBuying+" §7costing $§f" + Database.Round(totalPrice,2) +"§7+§f"+Database.Round(totalTax,2) + "§7.");
+				sendMessage(player, "§7Made §f" + bought + " §7transactions costing $§f" + Database.Round(totalPrice,2) +"§7+§f"+Database.Round(totalTax,2) + "§7. ($§f" + pPerUnit+"§7/unit)");
 			}
 		}
 	}
 
 	public void logTransaction(String shopOwner, String shopUser, int itemID, short dur, int amount, double price){
-		
-		double pricePerUnit = price / amount;
-		
 		if (config.logTransactions == true) {
-		
+			double pricePerUnit = price / amount;
 			Config.mysqlInfo mysqlInfo = plugin.config.getMysqlInfo();
 			
 			String SQL = "INSERT INTO `"+mysqlInfo.table+"` (`id`, `buy`, `shop_owner`, `shop_user`, `item_id`, `item_durability`, `amount`, `price`, `sec`) VALUES "+
@@ -652,8 +676,11 @@ public class csStats extends JavaPlugin {
 		Player owner = server.getPlayer(ownerName);
 
 		if (owner != null) {
-			String notifyBuy = "§f%s §7bought §f%s %s§7 §7($§f%s§7) §7from you.";
-			plugin.sendMessage(owner, String.format(notifyBuy, user.getDisplayName(), Amount, plugin.iDB.getItemName(itemID, dur), Database.Round(price, 2)));
+			//String notifyBuy = "§f%s §7bought §f%s %s§7 §7($§f%s§7) §7from you.";
+			//plugin.sendMessage(owner, String.format(notifyBuy, user.getDisplayName(), Amount, plugin.iDB.getItemName(itemID, dur), Database.Round(price, 2)));
+
+			String notifyBuy = "§7Someone bought §f%s§7x§f%s§7 §7($§f%s§7) §7from you.";
+			plugin.sendMessage(owner, String.format(notifyBuy, plugin.iDB.getItemName(itemID, dur), Amount, Database.Round(price, 2)));
 
 		}
 
@@ -688,10 +715,10 @@ public class csStats extends JavaPlugin {
 		}
 	}
 
-	public void sendMessage(CommandSender sender, String message) {
-		// final String message = Util.getFinalArg(string, 0);
+	public void sendMessage(CommandSender sender, String message ){
+		//final String message = Util.getFinalArg(string, 0);
 		if (sender instanceof Player) {
-			info(sender.getName() + "->" + message);
+			info("§e"+sender.getName() + "->§f" + message);
 		}
 		sender.sendMessage(chatPrefix + message);
 	}

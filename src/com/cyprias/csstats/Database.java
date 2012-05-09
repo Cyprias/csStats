@@ -233,7 +233,7 @@ public class Database {
 		SQL = SQL + " AND shop_user != 'Admin Shop'";
 
 		SQL = SQL + " ORDER BY sec DESC";
-		SQL = SQL + " LIMIT 1000";
+		SQL = SQL + " LIMIT 10000";
 
 		double totalPrice = 0;
 		double totalAmount = 0;

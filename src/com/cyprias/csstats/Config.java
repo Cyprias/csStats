@@ -32,11 +32,15 @@ public class Config extends JavaPlugin {
 		// config.set("version", plugin.version);
 		plugin.saveConfig();
 		
-		convenienceTax = config.getDouble("convenienceTax");
-		logTransactions = config.getBoolean("logTransactions");
+		loadConfigOpts();
 		
 	}
 
+	private void loadConfigOpts(){
+		convenienceTax = config.getDouble("convenienceTax");
+		logTransactions = config.getBoolean("logTransactions");
+	}
+	
 	@SuppressWarnings("unused")
 	private void debug(String msg) {
 		csStats.log.info(csStats.chatPrefix + msg);
@@ -47,6 +51,8 @@ public class Config extends JavaPlugin {
 	public void reloadOurConfig(){
 		plugin.reloadConfig();
 		config = plugin.getConfig().getRoot();
+		loadConfigOpts();
+		
 		reloadMysql();
 	}
 	
