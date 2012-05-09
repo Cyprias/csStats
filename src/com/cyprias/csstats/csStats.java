@@ -935,7 +935,7 @@ public class csStats extends JavaPlugin {
 				sender.sendMessage(chatPrefix + "/css stats [itemID/Name] [stackSize]");
 				sender.sendMessage(chatPrefix + "/css sellers [itemID] - Who sells the item in your hand.");
 				sender.sendMessage(chatPrefix + "/css buyers [itemID] - Who buys the item in your hand.");
-				sender.sendMessage(chatPrefix + "/css seller <player> - Public warps for that player.");
+				sender.sendMessage(chatPrefix + "/css player <player> - Public warps for that player.");
 				sender.sendMessage(chatPrefix + "/css buy [itemID] <count> - Buy that item from the cheapest shop available.");
 
 				if (hasPermission(sender, "css.admin"))
